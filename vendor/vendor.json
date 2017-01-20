@@ -1,0 +1,19 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "7E3Y1HU/UbsQF/dxMRdjFmx9QDQ=",
+			"path": "golang.org/x/image/draw",
+			"revision": "83686c547965220f8b5d75e83ddc67d73420a89f",
+			"revisionTime": "2017-01-15T09:09:03Z"
+		},
+		{
+			"checksumSHA1": "o7VkCGBiKM5HXzVzrIci1YDlpvc=",
+			"path": "golang.org/x/image/math/f64",
+			"revision": "83686c547965220f8b5d75e83ddc67d73420a89f",
+			"revisionTime": "2017-01-15T09:09:03Z"
+		}
+	],
+	"rootPath": "github.com/mandykoh/simian"
+}
