@@ -15,7 +15,7 @@ import (
 const nodeEntriesDir = "entries"
 const nodeFingerprintFile = "fingerprint"
 
-var errLastEntry = errors.New("last entry")
+var errResultLimitReached = errors.New("result limit reached")
 
 type IndexNode struct {
 	path        string
@@ -56,8 +56,8 @@ func (node *IndexNode) Add(entry *IndexEntry, childFingerprintSize int, index *I
 func (node *IndexNode) FindNearest(entry *IndexEntry, childFingerprintSize int, maxResults int, maxDifference float64) ([]*IndexEntry, error) {
 	results := make([]*IndexEntry, 0, maxResults)
 
-	_, err := node.gatherNearest(entry, childFingerprintSize, maxDifference, &results)
-	if err != nil {
+	err := node.gatherNearest(entry, childFingerprintSize, maxDifference, &results)
+	if err != errResultLimitReached {
 		return nil, err
 	}
 
@@ -82,16 +82,13 @@ func (node *IndexNode) HasChildren() bool {
 	return false
 }
 
-func (node *IndexNode) addSimilarEntriesTo(entries *[]*IndexEntry, fingerprint Fingerprint, maxDifference float64) (finished bool) {
-	finished = false
-
+func (node *IndexNode) addSimilarEntriesTo(entries *[]*IndexEntry, fingerprint Fingerprint, maxDifference float64) error {
 	fmt.Printf("addSimilarEntriesTo\n")
 
-	node.withEachEntry(func(entry *IndexEntry) error {
+	return node.withEachEntry(func(entry *IndexEntry) error {
 		if len(*entries) >= cap(*entries) {
 			fmt.Printf("Max results hit\n")
-			finished = true
-			return errLastEntry
+			return errResultLimitReached
 		}
 
 		diff := entry.MaxFingerprint.Difference(fingerprint)
@@ -100,14 +97,11 @@ func (node *IndexNode) addSimilarEntriesTo(entries *[]*IndexEntry, fingerprint F
 			*entries = append(*entries, entry)
 		} else {
 			fmt.Printf("Max difference hit at %f\n", diff)
-			finished = true
-			return errLastEntry
+			return errResultLimitReached
 		}
 
 		return nil
 	})
-
-	return
 }
 
 func (node *IndexNode) addEntry(f Fingerprint, entry *IndexEntry) error {
@@ -214,7 +208,7 @@ func (node *IndexNode) fingerprintForChild(childPath string) (Fingerprint, error
 	return childFingerprint, nil
 }
 
-func (node *IndexNode) gatherNearest(entry *IndexEntry, childFingerprintSize int, maxDifference float64, results *[]*IndexEntry) (bool, error) {
+func (node *IndexNode) gatherNearest(entry *IndexEntry, childFingerprintSize int, maxDifference float64, results *[]*IndexEntry) error {
 
 	fmt.Printf("%d gatherNearest\n", childFingerprintSize)
 
@@ -224,21 +218,21 @@ func (node *IndexNode) gatherNearest(entry *IndexEntry, childFingerprintSize int
 
 	// One exists - recursively search it
 	if exactChild != nil {
-		finished, err := exactChild.gatherNearest(entry, childFingerprintSize+1, maxDifference, results)
+		err := exactChild.gatherNearest(entry, childFingerprintSize+1, maxDifference, results)
 		if err != nil {
-			return false, err
+			return err
 		}
 
-		if finished || exactChild.addSimilarEntriesTo(results, entry.MaxFingerprint, maxDifference) {
-			fmt.Printf("%d finished gatherNearest\n", childFingerprintSize)
-			return true, nil
+		err = exactChild.addSimilarEntriesTo(results, entry.MaxFingerprint, maxDifference)
+		if err != nil {
+			return err
 		}
 	}
 
 	// Need more results - find and sort all children by nearness
 	children, err := node.allChildren()
 	if err != nil {
-		return false, err
+		return err
 	}
 	sort.Sort(nodesByDifferenceToFingerprintWith(children, entryFingerprint))
 
@@ -255,19 +249,18 @@ func (node *IndexNode) gatherNearest(entry *IndexEntry, childFingerprintSize int
 			continue
 		}
 
-		finished, err := child.gatherNearest(entry, childFingerprintSize+1, maxDifference, results)
+		err := child.gatherNearest(entry, childFingerprintSize+1, maxDifference, results)
 		if err != nil {
-			return false, err
+			return err
 		}
 
-		if finished || child.addSimilarEntriesTo(results, entry.MaxFingerprint, maxDifference) {
-			fmt.Printf("%d finished gatherNearest\n", childFingerprintSize)
-			return true, nil
+		err = child.addSimilarEntriesTo(results, entry.MaxFingerprint, maxDifference)
+		if err != nil {
+			return err
 		}
 	}
 
-	fmt.Printf("%d finished gatherNearest - no more to gather\n", childFingerprintSize)
-	return false, nil
+	return nil
 }
 
 func (node *IndexNode) loadChild(childDirName string) (*IndexNode, error) {
@@ -311,6 +304,9 @@ func (node *IndexNode) withEachEntry(action func(*IndexEntry) error) error {
 
 	dir, err := os.Open(entriesDir)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
 		return err
 	}
 	defer dir.Close()
@@ -321,9 +317,6 @@ func (node *IndexNode) withEachEntry(action func(*IndexEntry) error) error {
 				entry, err2 := NewIndexEntryFromFile(filepath.Join(entriesDir, fileInfo.Name()))
 				if err2 == nil {
 					err3 := action(entry)
-					if err3 == errLastEntry {
-						return nil
-					}
 					if err3 != nil {
 						return err3
 					}
