@@ -236,11 +236,11 @@ func (node *IndexNode) gatherNearest(entry *IndexEntry, childFingerprintSize int
 	}
 	sort.Sort(nodesByDifferenceToFingerprintWith(children, entryFingerprint))
 
-	fmt.Printf("Sorting %d children...\n", len(children))
-	for i, child := range children {
-		diff := child.fingerprint.Difference(entryFingerprint)
-		fmt.Printf("%d sorted child %d of %f (%d %d)\n", childFingerprintSize+1, i, diff, len(child.fingerprint.samples), len(entryFingerprint.samples))
-	}
+	// fmt.Printf("Sorting %d children...\n", len(children))
+	// for i, child := range children {
+	// 	diff := child.fingerprint.Difference(entryFingerprint)
+	// 	fmt.Printf("%d sorted child %d of %f (%d %d)\n", childFingerprintSize+1, i, diff, len(child.fingerprint.samples), len(entryFingerprint.samples))
+	// }
 
 	// Recursively gather from nearest children
 	for i, child := range children {
