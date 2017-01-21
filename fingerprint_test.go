@@ -94,7 +94,7 @@ func TestDistanceReturnsMaxValueForMismatchedLength(t *testing.T) {
 	dist := f1.Distance(f2)
 
 	if dist != math.MaxUint64 {
-		t.Errorf("Distance %f wasn't max uint64", dist)
+		t.Errorf("Distance %d wasn't max uint64", dist)
 	}
 }
 
