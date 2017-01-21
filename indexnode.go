@@ -314,12 +314,14 @@ func (node *IndexNode) withEachEntry(action func(*IndexEntry) error) error {
 	for fileInfos, err := dir.Readdir(1); err == nil && len(fileInfos) > 0; fileInfos, err = dir.Readdir(1) {
 		for _, fileInfo := range fileInfos {
 			if strings.HasSuffix(fileInfo.Name(), ".entry") {
-				entry, err2 := NewIndexEntryFromFile(filepath.Join(entriesDir, fileInfo.Name()))
-				if err2 == nil {
-					err3 := action(entry)
-					if err3 != nil {
-						return err3
-					}
+				entry, err := NewIndexEntryFromFile(filepath.Join(entriesDir, fileInfo.Name()))
+				if err != nil {
+					return err
+				}
+
+				err = action(entry)
+				if err != nil {
+					return err
 				}
 			}
 		}
