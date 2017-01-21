@@ -1,5 +1,7 @@
 # simian
 
+[![GoDoc](https://godoc.org/github.com/mandykoh/simian?status.svg)](https://godoc.org/github.com/mandykoh/simian)
+
 Caution—This code is proof-of-concept quality. This means:
 
   * The API is unstable and doesn’t support common use cases.
