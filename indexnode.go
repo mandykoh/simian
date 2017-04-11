@@ -37,7 +37,7 @@ func (node *IndexNode) Add(entry *IndexEntry, childFingerprintSize int, index *I
 			node.pushEntriesToChildren(childFingerprintSize)
 
 		} else {
-			err := node.addEntry(entryFingerprint, entry)
+			err := node.addEntry(entry)
 			if err != nil {
 				return nil, err
 			}
@@ -104,7 +104,7 @@ func (node *IndexNode) addSimilarEntriesTo(entries *[]*IndexEntry, fingerprint F
 	})
 }
 
-func (node *IndexNode) addEntry(f Fingerprint, entry *IndexEntry) error {
+func (node *IndexNode) addEntry(entry *IndexEntry) error {
 	entriesDir := filepath.Join(node.path, nodeEntriesDir)
 	os.Mkdir(entriesDir, os.ModePerm)
 
@@ -292,7 +292,7 @@ func (node *IndexNode) pushEntriesToChildren(childFingerprintSize int) error {
 		if err != nil {
 			return err
 		}
-		child.addEntry(entryFingerprint, entry)
+		child.addEntry(entry)
 		return nil
 	})
 
