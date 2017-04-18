@@ -18,8 +18,7 @@ const nodeFingerprintFile = "fingerprint"
 var errResultLimitReached = errors.New("result limit reached")
 
 type IndexNode struct {
-	path        string
-	fingerprint Fingerprint
+	path string
 }
 
 func (node *IndexNode) Add(entry *IndexEntry, childFingerprintSize int, index *Index) (*IndexNode, error) {
@@ -111,8 +110,8 @@ func (node *IndexNode) addEntry(entry *IndexEntry) error {
 	return entry.saveToDir(entriesDir)
 }
 
-func (node *IndexNode) allChildren() ([]*IndexNode, error) {
-	var children []*IndexNode
+func (node *IndexNode) allChildren() ([]*indexNodeHandle, error) {
+	var children []*indexNodeHandle
 
 	dir, err := os.Open(node.path)
 	if err != nil {
@@ -174,7 +173,7 @@ func (node *IndexNode) childWithFingerprint(f Fingerprint, create bool) (*IndexN
 		return nil, err
 	}
 
-	return &IndexNode{path: childPath, fingerprint: f}, nil
+	return &IndexNode{path: childPath}, nil
 }
 
 func (node *IndexNode) deleteEntries() error {
@@ -249,12 +248,14 @@ func (node *IndexNode) gatherNearest(entry *IndexEntry, childFingerprintSize int
 			continue
 		}
 
-		err := child.gatherNearest(entry, childFingerprintSize+1, maxDifference, results)
+		childNode := child.Node()
+
+		err := childNode.gatherNearest(entry, childFingerprintSize+1, maxDifference, results)
 		if err != nil {
 			return err
 		}
 
-		err = child.addSimilarEntriesTo(results, entry.MaxFingerprint, maxDifference)
+		err = childNode.addSimilarEntriesTo(results, entry.MaxFingerprint, maxDifference)
 		if err != nil {
 			return err
 		}
@@ -263,14 +264,14 @@ func (node *IndexNode) gatherNearest(entry *IndexEntry, childFingerprintSize int
 	return nil
 }
 
-func (node *IndexNode) loadChild(childDirName string) (*IndexNode, error) {
+func (node *IndexNode) loadChild(childDirName string) (*indexNodeHandle, error) {
 	childPath := filepath.Join(node.path, childDirName)
 	childFingerprint, err := node.fingerprintForChild(childPath)
 	if err != nil {
 		return nil, err
 	}
 
-	return &IndexNode{path: childPath, fingerprint: childFingerprint}, nil
+	return &indexNodeHandle{path: childPath, fingerprint: childFingerprint}, nil
 }
 
 func (node *IndexNode) maxChildDifferenceTo(f Fingerprint) float64 {
@@ -331,7 +332,7 @@ func (node *IndexNode) withEachEntry(action func(*IndexEntry) error) error {
 }
 
 type nodesByDifferenceToFingerprint struct {
-	nodes       []*IndexNode
+	nodes       []*indexNodeHandle
 	differences []float64
 }
 
@@ -353,7 +354,7 @@ func (sorter *nodesByDifferenceToFingerprint) Swap(i, j int) {
 	sorter.differences[j] = tmpDiff
 }
 
-func nodesByDifferenceToFingerprintWith(nodes []*IndexNode, f Fingerprint) *nodesByDifferenceToFingerprint {
+func nodesByDifferenceToFingerprintWith(nodes []*indexNodeHandle, f Fingerprint) *nodesByDifferenceToFingerprint {
 	differences := make([]float64, len(nodes), len(nodes))
 	for i, n := range nodes {
 		differences[i] = n.fingerprint.Difference(f)
