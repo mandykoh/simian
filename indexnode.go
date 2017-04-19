@@ -17,7 +17,9 @@ const nodeEntriesDir = "entries"
 var errResultLimitReached = errors.New("result limit reached")
 
 type IndexNode struct {
-	path string
+	path                  string
+	children              []*IndexNodeHandle
+	childrenByFingerprint map[string]*IndexNodeHandle
 }
 
 func (node *IndexNode) Add(entry *IndexEntry, childFingerprintSize int, index *Index) (*IndexNode, error) {
@@ -150,6 +152,11 @@ func (node *IndexNode) childWithFingerprint(f Fingerprint, store IndexStore) (ch
 	if os.IsNotExist(err) {
 		if store != nil {
 			err = store.SaveNode(child, f)
+
+			if err != nil {
+				node.registerChild(child, f)
+			}
+
 		} else {
 			child = nil
 			err = nil
@@ -287,6 +294,12 @@ func (node *IndexNode) pushEntriesToChildren(childFingerprintSize int, store Ind
 	})
 
 	return node.deleteEntries()
+}
+
+func (node *IndexNode) registerChild(child *IndexNode, f Fingerprint) {
+	childHandle := &IndexNodeHandle{Path: child.path, Fingerprint: f}
+	node.children = append(node.children, childHandle)
+	node.childrenByFingerprint[f.String()] = childHandle
 }
 
 func (node *IndexNode) withEachEntry(action func(*IndexEntry) error) error {
