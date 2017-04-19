@@ -10,6 +10,7 @@ import (
 const rootFingerprintSize = 1
 
 type Index struct {
+	Store              IndexStore
 	rootNode           IndexNode
 	maxFingerprintSize int
 	maxEntryDifference float64
@@ -35,7 +36,7 @@ func (i *Index) FindNearest(image image.Image, maxResults int, maxDifference flo
 		return nil, nil
 	}
 
-	results, err := i.rootNode.FindNearest(entry, rootFingerprintSize+1, maxResults, math.Max(maxDifference, i.maxEntryDifference))
+	results, err := i.rootNode.FindNearest(entry, rootFingerprintSize+1, i, maxResults, math.Max(maxDifference, i.maxEntryDifference))
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +49,7 @@ func NewIndex(path string, maxFingerprintSize int, maxEntryDifference float64) *
 	os.MkdirAll(path, 0522)
 
 	return &Index{
+		Store:              &DiskIndexStore{},
 		rootNode:           IndexNode{path: path},
 		maxFingerprintSize: maxFingerprintSize,
 		maxEntryDifference: maxEntryDifference,
