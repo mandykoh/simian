@@ -8,10 +8,15 @@ import (
 const nodeFingerprintFile = "fingerprint"
 
 type DiskIndexStore struct {
+	RootPath string
 }
 
 func (s *DiskIndexStore) GetNode(h *IndexNodeHandle) (*IndexNode, error) {
 	return &IndexNode{path: h.Path}, nil
+}
+
+func (s *DiskIndexStore) GetRoot() *IndexNode {
+	return &IndexNode{path: s.RootPath}
 }
 
 func (s *DiskIndexStore) SaveNode(n *IndexNode, f Fingerprint) (err error) {
