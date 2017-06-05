@@ -45,7 +45,7 @@ func (node *IndexNode) Add(entry *IndexEntry, childFingerprintSize int, index *I
 		}
 	}
 
-	child, err := node.childWithFingerprint(entryFingerprint, index.Store, true)
+	child, err := node.childWithFingerprint(entryFingerprint, index.Store)
 	if err != nil {
 		return nil, err
 	}
@@ -99,28 +99,23 @@ func (node *IndexNode) childPathForFingerprint(f Fingerprint) string {
 	return filepath.Join(node.path, childDirName)
 }
 
-func (node *IndexNode) childWithFingerprint(f Fingerprint, store IndexStore, create bool) (child *IndexNode, err error) {
+func (node *IndexNode) childWithFingerprint(f Fingerprint, store IndexStore) (child *IndexNode, err error) {
 	childPath := node.childPathForFingerprint(f)
 	_, err = os.Stat(childPath)
 
 	// Child doesn't already exist so create it if requested
 	if os.IsNotExist(err) {
-		if create {
-			child = &IndexNode{
-				path: childPath,
-				childrenByFingerprint: make(map[string]*IndexNodeHandle),
-			}
-
-			err = store.SaveNode(child, f)
-
-			if err != nil {
-				node.registerChild(child, f)
-			}
-
-		} else {
-			child = nil
-			err = nil
+		child = &IndexNode{
+			path: childPath,
+			childrenByFingerprint: make(map[string]*IndexNodeHandle),
 		}
+
+		err = store.SaveNode(child, f)
+
+		if err != nil {
+			node.registerChild(child, f)
+		}
+
 	} else {
 		child, err = store.GetNode(childPath)
 	}
@@ -139,9 +134,15 @@ func (node *IndexNode) gatherNearest(entry *IndexEntry, childFingerprintSize int
 
 	// Check for an exact matching child
 	entryFingerprint := entry.FingerprintForSize(childFingerprintSize)
-	exactChild, err := node.childWithFingerprint(entryFingerprint, index.Store, false)
-	if err != nil {
-		return err
+	exactChildHandle := node.childrenByFingerprint[entryFingerprint.String()]
+
+	var exactChild *IndexNode
+	if exactChildHandle != nil {
+		var err error
+		exactChild, err = index.Store.GetNode(exactChildHandle.Path)
+		if err != nil {
+			return err
+		}
 	}
 
 	// One exists - recursively search it
@@ -210,7 +211,7 @@ func (node *IndexNode) maxChildDifferenceTo(f Fingerprint) float64 {
 func (node *IndexNode) pushEntriesToChildren(childFingerprintSize int, store IndexStore) error {
 	node.withEachEntry(func(entry *IndexEntry) error {
 		entryFingerprint := entry.FingerprintForSize(childFingerprintSize)
-		child, err := node.childWithFingerprint(entryFingerprint, store, true)
+		child, err := node.childWithFingerprint(entryFingerprint, store)
 		if err != nil {
 			return err
 		}
