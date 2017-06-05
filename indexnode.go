@@ -133,32 +133,6 @@ func (node *IndexNode) deleteEntries() error {
 	return os.RemoveAll(entriesDir)
 }
 
-func (node *IndexNode) fingerprintForChild(childPath string) (Fingerprint, error) {
-	childFingerprint := Fingerprint{}
-	childFingerprintFile := filepath.Join(childPath, nodeFingerprintFile)
-
-	file, err := os.Open(childFingerprintFile)
-	if err != nil {
-		return childFingerprint, err
-	}
-	defer file.Close()
-
-	fileInfo, err := file.Stat()
-	if err != nil {
-		return childFingerprint, err
-	}
-
-	fingerprintBytes := make([]byte, fileInfo.Size(), fileInfo.Size())
-	_, err = file.Read(fingerprintBytes)
-	if err != nil {
-		return childFingerprint, err
-	}
-
-	childFingerprint.UnmarshalBytes(fingerprintBytes)
-
-	return childFingerprint, nil
-}
-
 func (node *IndexNode) gatherNearest(entry *IndexEntry, childFingerprintSize int, index *Index, maxDifference float64, results *[]*IndexEntry) error {
 
 	fmt.Printf("%d gatherNearest\n", childFingerprintSize)
@@ -219,16 +193,6 @@ func (node *IndexNode) gatherNearest(entry *IndexEntry, childFingerprintSize int
 	}
 
 	return nil
-}
-
-func (node *IndexNode) loadChild(childDirName string) (*IndexNodeHandle, error) {
-	childPath := filepath.Join(node.path, childDirName)
-	childFingerprint, err := node.fingerprintForChild(childPath)
-	if err != nil {
-		return nil, err
-	}
-
-	return &IndexNodeHandle{Path: childPath, Fingerprint: childFingerprint}, nil
 }
 
 func (node *IndexNode) maxChildDifferenceTo(f Fingerprint) float64 {
