@@ -28,7 +28,7 @@ func (node *IndexNode) Add(entry *IndexEntry, childFingerprintSize int, index *I
 
 	entryFingerprint := entry.FingerprintForSize(childFingerprintSize)
 
-	if !node.HasChildren() {
+	if len(node.children) == 0 {
 
 		// We can go deeper and this new entry is sufficiently different to
 		// the rest, so split this leaf node by turning entries into children.
@@ -62,24 +62,6 @@ func (node *IndexNode) FindNearest(entry *IndexEntry, childFingerprintSize int, 
 	}
 
 	return results, nil
-}
-
-func (node *IndexNode) HasChildren() bool {
-	dir, err := os.Open(node.path)
-	if err != nil {
-		return false
-	}
-	defer dir.Close()
-
-	for fileInfos, err := dir.Readdir(1); err == nil && len(fileInfos) > 0; fileInfos, err = dir.Readdir(1) {
-		for _, info := range fileInfos {
-			if info.IsDir() && info.Name() != nodeEntriesDir {
-				return true
-			}
-		}
-	}
-
-	return false
 }
 
 func (node *IndexNode) addSimilarEntriesTo(entries *[]*IndexEntry, fingerprint Fingerprint, maxDifference float64) error {
