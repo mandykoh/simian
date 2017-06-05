@@ -45,7 +45,7 @@ func (node *IndexNode) Add(entry *IndexEntry, childFingerprintSize int, index *I
 		}
 	}
 
-	child, err := node.childWithFingerprint(entryFingerprint, index.Store)
+	child, err := node.childWithFingerprint(entryFingerprint, index.Store, true)
 	if err != nil {
 		return nil, err
 	}
@@ -111,46 +111,24 @@ func (node *IndexNode) addEntry(entry *IndexEntry) error {
 	return entry.saveToDir(entriesDir)
 }
 
-func (node *IndexNode) allChildren() ([]*IndexNodeHandle, error) {
-	var children []*IndexNodeHandle
-
-	dir, err := os.Open(node.path)
-	if err != nil {
-		return nil, err
-	}
-	defer dir.Close()
-
-	for fileInfos, err := dir.Readdir(1); err == nil && len(fileInfos) > 0; fileInfos, err = dir.Readdir(1) {
-		for _, info := range fileInfos {
-			if info.IsDir() && info.Name() != nodeEntriesDir {
-				child, err := node.loadChild(info.Name())
-				if err != nil {
-					return nil, err
-				}
-
-				children = append(children, child)
-			}
-		}
-	}
-
-	return children, nil
-}
-
 func (node *IndexNode) childPathForFingerprint(f Fingerprint) string {
 	fingerprintHash := sha256.Sum256(f.Bytes())
 	childDirName := hex.EncodeToString(fingerprintHash[:8])
 	return filepath.Join(node.path, childDirName)
 }
 
-func (node *IndexNode) childWithFingerprint(f Fingerprint, store IndexStore) (child *IndexNode, err error) {
+func (node *IndexNode) childWithFingerprint(f Fingerprint, store IndexStore, create bool) (child *IndexNode, err error) {
 	childPath := node.childPathForFingerprint(f)
 	_, err = os.Stat(childPath)
 
-	child = &IndexNode{path: childPath}
-
-	// Child doesn't already exist so create it if requested (if a store was provided)
+	// Child doesn't already exist so create it if requested
 	if os.IsNotExist(err) {
-		if store != nil {
+		if create {
+			child = &IndexNode{
+				path: childPath,
+				childrenByFingerprint: make(map[string]*IndexNodeHandle),
+			}
+
 			err = store.SaveNode(child, f)
 
 			if err != nil {
@@ -161,6 +139,8 @@ func (node *IndexNode) childWithFingerprint(f Fingerprint, store IndexStore) (ch
 			child = nil
 			err = nil
 		}
+	} else {
+		child, err = store.GetNode(childPath)
 	}
 
 	return
@@ -203,7 +183,7 @@ func (node *IndexNode) gatherNearest(entry *IndexEntry, childFingerprintSize int
 
 	// Check for an exact matching child
 	entryFingerprint := entry.FingerprintForSize(childFingerprintSize)
-	exactChild, err := node.childWithFingerprint(entryFingerprint, nil)
+	exactChild, err := node.childWithFingerprint(entryFingerprint, index.Store, false)
 	if err != nil {
 		return err
 	}
@@ -221,11 +201,10 @@ func (node *IndexNode) gatherNearest(entry *IndexEntry, childFingerprintSize int
 		}
 	}
 
+	children := make([]*IndexNodeHandle, len(node.children))
+	copy(children, node.children)
+
 	// Need more results - find and sort all children by nearness
-	children, err := node.allChildren()
-	if err != nil {
-		return err
-	}
 	sort.Sort(nodesByDifferenceToFingerprintWith(children, entryFingerprint))
 
 	// fmt.Printf("Sorting %d children...\n", len(children))
@@ -241,7 +220,7 @@ func (node *IndexNode) gatherNearest(entry *IndexEntry, childFingerprintSize int
 			continue
 		}
 
-		childNode, err := index.Store.GetNode(child.Path, child.Fingerprint)
+		childNode, err := index.Store.GetNode(child.Path)
 		if err != nil {
 			return err
 		}
@@ -285,7 +264,7 @@ func (node *IndexNode) maxChildDifferenceTo(f Fingerprint) float64 {
 func (node *IndexNode) pushEntriesToChildren(childFingerprintSize int, store IndexStore) error {
 	node.withEachEntry(func(entry *IndexEntry) error {
 		entryFingerprint := entry.FingerprintForSize(childFingerprintSize)
-		child, err := node.childWithFingerprint(entryFingerprint, store)
+		child, err := node.childWithFingerprint(entryFingerprint, store, true)
 		if err != nil {
 			return err
 		}
@@ -298,8 +277,12 @@ func (node *IndexNode) pushEntriesToChildren(childFingerprintSize int, store Ind
 
 func (node *IndexNode) registerChild(child *IndexNode, f Fingerprint) {
 	childHandle := &IndexNodeHandle{Path: child.path, Fingerprint: f}
+	node.registerChildByHandle(childHandle)
+}
+
+func (node *IndexNode) registerChildByHandle(childHandle *IndexNodeHandle) {
 	node.children = append(node.children, childHandle)
-	node.childrenByFingerprint[f.String()] = childHandle
+	node.childrenByFingerprint[childHandle.Fingerprint.String()] = childHandle
 }
 
 func (node *IndexNode) withEachEntry(action func(*IndexEntry) error) error {

@@ -1,7 +1,7 @@
 package simian
 
 type IndexStore interface {
-	GetNode(path string, f Fingerprint) (*IndexNode, error)
-	GetRoot() *IndexNode
+	GetNode(path string) (*IndexNode, error)
+	GetRoot() (*IndexNode, error)
 	SaveNode(n *IndexNode, f Fingerprint) error
 }

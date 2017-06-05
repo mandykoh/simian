@@ -11,12 +11,22 @@ type DiskIndexStore struct {
 	RootPath string
 }
 
-func (s *DiskIndexStore) GetNode(path string, f Fingerprint) (*IndexNode, error) {
-	return &IndexNode{path: path}, nil
+func (s *DiskIndexStore) GetNode(path string) (*IndexNode, error) {
+	node := &IndexNode{
+		path: path,
+		childrenByFingerprint: make(map[string]*IndexNodeHandle),
+	}
+
+	err := s.loadAllChildren(node)
+	if err != nil {
+		return nil, err
+	}
+
+	return node, nil
 }
 
-func (s *DiskIndexStore) GetRoot() *IndexNode {
-	return &IndexNode{path: s.RootPath}
+func (s *DiskIndexStore) GetRoot() (*IndexNode, error) {
+	return s.GetNode(s.RootPath)
 }
 
 func (s *DiskIndexStore) SaveNode(n *IndexNode, f Fingerprint) (err error) {
@@ -34,4 +44,27 @@ func (s *DiskIndexStore) SaveNode(n *IndexNode, f Fingerprint) (err error) {
 
 	_, err = file.Write(f.Bytes())
 	return
+}
+
+func (s *DiskIndexStore) loadAllChildren(n *IndexNode) error {
+	dir, err := os.Open(n.path)
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+
+	for fileInfos, err := dir.Readdir(1); err == nil && len(fileInfos) > 0; fileInfos, err = dir.Readdir(1) {
+		for _, info := range fileInfos {
+			if info.IsDir() && info.Name() != nodeEntriesDir {
+				child, err := n.loadChild(info.Name())
+				if err != nil {
+					return err
+				}
+
+				n.registerChildByHandle(child)
+			}
+		}
+	}
+
+	return nil
 }

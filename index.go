@@ -21,7 +21,12 @@ func (i *Index) Add(image image.Image, metadata interface{}) (key string, err er
 		return "", nil
 	}
 
-	node, err := i.Store.GetRoot().Add(entry, rootFingerprintSize+1, i)
+	root, err := i.Store.GetRoot()
+	if err != nil {
+		return "", err
+	}
+
+	node, err := root.Add(entry, rootFingerprintSize+1, i)
 	if err != nil {
 		return "", err
 	}
@@ -35,7 +40,12 @@ func (i *Index) FindNearest(image image.Image, maxResults int, maxDifference flo
 		return nil, nil
 	}
 
-	results, err := i.Store.GetRoot().FindNearest(entry, rootFingerprintSize+1, i, maxResults, math.Max(maxDifference, i.maxEntryDifference))
+	root, err := i.Store.GetRoot()
+	if err != nil {
+		return nil, err
+	}
+
+	results, err := root.FindNearest(entry, rootFingerprintSize+1, i, maxResults, math.Max(maxDifference, i.maxEntryDifference))
 	if err != nil {
 		return nil, err
 	}
