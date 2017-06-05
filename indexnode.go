@@ -241,7 +241,7 @@ func (node *IndexNode) gatherNearest(entry *IndexEntry, childFingerprintSize int
 			continue
 		}
 
-		childNode, err := index.Store.GetNode(child)
+		childNode, err := index.Store.GetNode(child.Path, child.Fingerprint)
 		if err != nil {
 			return err
 		}

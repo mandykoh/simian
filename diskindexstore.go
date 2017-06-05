@@ -11,8 +11,8 @@ type DiskIndexStore struct {
 	RootPath string
 }
 
-func (s *DiskIndexStore) GetNode(h *IndexNodeHandle) (*IndexNode, error) {
-	return &IndexNode{path: h.Path}, nil
+func (s *DiskIndexStore) GetNode(path string, f Fingerprint) (*IndexNode, error) {
+	return &IndexNode{path: path}, nil
 }
 
 func (s *DiskIndexStore) GetRoot() *IndexNode {
