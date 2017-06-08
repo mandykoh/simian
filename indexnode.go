@@ -4,10 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"os"
-	"path/filepath"
 	"sort"
-	"strings"
 )
 
 var errResultLimitReached = errors.New("result limit reached")
@@ -16,6 +13,7 @@ type IndexNode struct {
 	path                  string
 	children              []*IndexNodeHandle
 	childrenByFingerprint map[string]*IndexNodeHandle
+	entries               []*IndexEntry
 }
 
 func (node *IndexNode) Add(entry *IndexEntry, childFingerprintSize int, index *Index) (*IndexNode, error) {
@@ -189,31 +187,19 @@ func (node *IndexNode) registerChildByHandle(childHandle *IndexNodeHandle) {
 	node.childrenByFingerprint[childHandle.Fingerprint.String()] = childHandle
 }
 
+func (node *IndexNode) registerEntry(entry *IndexEntry) {
+	node.entries = append(node.entries, entry)
+}
+
+func (node *IndexNode) removeEntries() {
+	node.entries = nil
+}
+
 func (node *IndexNode) withEachEntry(action func(*IndexEntry) error) error {
-	entriesDir := filepath.Join(node.path, nodeEntriesDir)
-
-	dir, err := os.Open(entriesDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-	defer dir.Close()
-
-	for fileInfos, err := dir.Readdir(1); err == nil && len(fileInfos) > 0; fileInfos, err = dir.Readdir(1) {
-		for _, fileInfo := range fileInfos {
-			if strings.HasSuffix(fileInfo.Name(), ".entry") {
-				entry, err := NewIndexEntryFromFile(filepath.Join(entriesDir, fileInfo.Name()))
-				if err != nil {
-					return err
-				}
-
-				err = action(entry)
-				if err != nil {
-					return err
-				}
-			}
+	for _, entry := range node.entries {
+		err := action(entry)
+		if err != nil {
+			return err
 		}
 	}
 

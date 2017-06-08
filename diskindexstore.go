@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const nodeFingerprintFile = "fingerprint"
@@ -19,7 +20,13 @@ func (s *DiskIndexStore) AddEntry(entry *IndexEntry, node *IndexNode) error {
 	entriesDir := filepath.Join(node.path, nodeEntriesDir)
 	os.Mkdir(entriesDir, os.ModePerm)
 
-	return entry.saveToDir(entriesDir)
+	err := entry.saveToDir(entriesDir)
+	if err != nil {
+		return err
+	}
+
+	node.registerEntry(entry)
+	return nil
 }
 
 func (s *DiskIndexStore) GetChild(f Fingerprint, parent *IndexNode) (*IndexNode, error) {
@@ -61,7 +68,13 @@ func (s *DiskIndexStore) GetRoot() (*IndexNode, error) {
 
 func (s *DiskIndexStore) RemoveEntries(node *IndexNode) error {
 	entriesDir := filepath.Join(node.path, nodeEntriesDir)
-	return os.RemoveAll(entriesDir)
+	err := os.RemoveAll(entriesDir)
+	if err != nil {
+		return err
+	}
+
+	node.removeEntries()
+	return nil
 }
 
 func (s *DiskIndexStore) childPathForFingerprint(f Fingerprint, parentPath string) string {
@@ -116,6 +129,11 @@ func (s *DiskIndexStore) getNodeByPath(path string) (*IndexNode, error) {
 		return nil, err
 	}
 
+	err = s.loadAllEntries(node)
+	if err != nil {
+		return nil, err
+	}
+
 	return node, nil
 }
 
@@ -135,6 +153,34 @@ func (s *DiskIndexStore) loadAllChildren(n *IndexNode) error {
 				}
 
 				n.registerChildByHandle(child)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *DiskIndexStore) loadAllEntries(n *IndexNode) error {
+	entriesDir := filepath.Join(n.path, nodeEntriesDir)
+
+	dir, err := os.Open(entriesDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	defer dir.Close()
+
+	for fileInfos, err := dir.Readdir(1); err == nil && len(fileInfos) > 0; fileInfos, err = dir.Readdir(1) {
+		for _, fileInfo := range fileInfos {
+			if strings.HasSuffix(fileInfo.Name(), ".entry") {
+				entry, err := NewIndexEntryFromFile(filepath.Join(entriesDir, fileInfo.Name()))
+				if err != nil {
+					return err
+				}
+
+				n.registerEntry(entry)
 			}
 		}
 	}
