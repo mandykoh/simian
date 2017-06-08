@@ -9,9 +9,17 @@ import (
 )
 
 const nodeFingerprintFile = "fingerprint"
+const nodeEntriesDir = "entries"
 
 type DiskIndexStore struct {
 	RootPath string
+}
+
+func (s *DiskIndexStore) AddEntry(entry *IndexEntry, node *IndexNode) error {
+	entriesDir := filepath.Join(node.path, nodeEntriesDir)
+	os.Mkdir(entriesDir, os.ModePerm)
+
+	return entry.saveToDir(entriesDir)
 }
 
 func (s *DiskIndexStore) GetChild(f Fingerprint, parent *IndexNode) (*IndexNode, error) {
@@ -49,6 +57,11 @@ func (s *DiskIndexStore) GetOrCreateChild(f Fingerprint, parent *IndexNode) (*In
 
 func (s *DiskIndexStore) GetRoot() (*IndexNode, error) {
 	return s.getNodeByPath(s.RootPath)
+}
+
+func (s *DiskIndexStore) RemoveEntries(node *IndexNode) error {
+	entriesDir := filepath.Join(node.path, nodeEntriesDir)
+	return os.RemoveAll(entriesDir)
 }
 
 func (s *DiskIndexStore) childPathForFingerprint(f Fingerprint, parentPath string) string {

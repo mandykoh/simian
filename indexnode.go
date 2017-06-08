@@ -10,8 +10,6 @@ import (
 	"strings"
 )
 
-const nodeEntriesDir = "entries"
-
 var errResultLimitReached = errors.New("result limit reached")
 
 type IndexNode struct {
@@ -37,7 +35,7 @@ func (node *IndexNode) Add(entry *IndexEntry, childFingerprintSize int, index *I
 
 		} else {
 			fmt.Printf("Adding entry %s\n", node.path)
-			err := node.addEntry(entry)
+			err := index.Store.AddEntry(entry, node)
 			if err != nil {
 				return nil, err
 			}
@@ -85,18 +83,6 @@ func (node *IndexNode) addSimilarEntriesTo(entries *[]*IndexEntry, fingerprint F
 
 		return nil
 	})
-}
-
-func (node *IndexNode) addEntry(entry *IndexEntry) error {
-	entriesDir := filepath.Join(node.path, nodeEntriesDir)
-	os.Mkdir(entriesDir, os.ModePerm)
-
-	return entry.saveToDir(entriesDir)
-}
-
-func (node *IndexNode) deleteEntries() error {
-	entriesDir := filepath.Join(node.path, nodeEntriesDir)
-	return os.RemoveAll(entriesDir)
 }
 
 func (node *IndexNode) gatherNearest(entry *IndexEntry, childFingerprintSize int, index *Index, maxDifference float64, results *[]*IndexEntry) error {
@@ -186,11 +172,11 @@ func (node *IndexNode) pushEntriesToChildren(childFingerprintSize int, store Ind
 		if err != nil {
 			return err
 		}
-		child.addEntry(entry)
+		store.AddEntry(entry, child)
 		return nil
 	})
 
-	return node.deleteEntries()
+	return store.RemoveEntries(node)
 }
 
 func (node *IndexNode) registerChild(child *IndexNode, f Fingerprint) {
