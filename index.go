@@ -55,7 +55,7 @@ func (i *Index) FindNearest(image image.Image, maxResults int, maxDifference flo
 }
 
 func NewIndex(path string, maxFingerprintSize int, maxEntryDifference float64) *Index {
-	os.MkdirAll(path, 0522)
+	os.MkdirAll(path, 0700)
 
 	return &Index{
 		Store:              &DiskIndexStore{RootPath: path},

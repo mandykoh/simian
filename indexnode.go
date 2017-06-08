@@ -1,8 +1,6 @@
 package simian
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
@@ -34,18 +32,21 @@ func (node *IndexNode) Add(entry *IndexEntry, childFingerprintSize int, index *I
 		// the rest, so split this leaf node by turning entries into children.
 		fmt.Printf("Max Diff: %f\n", node.maxChildDifferenceTo(entry.MaxFingerprint))
 		if childFingerprintSize < index.maxFingerprintSize && node.maxChildDifferenceTo(entry.MaxFingerprint) > index.maxEntryDifference {
+			fmt.Printf("Pushing entries to children\n")
 			node.pushEntriesToChildren(childFingerprintSize, index.Store)
 
 		} else {
+			fmt.Printf("Adding entry %s\n", node.path)
 			err := node.addEntry(entry)
 			if err != nil {
 				return nil, err
 			}
+			fmt.Printf("Added entry\n")
 			return node, nil
 		}
 	}
 
-	child, err := node.childWithFingerprint(entryFingerprint, index.Store)
+	child, err := index.Store.GetOrCreateChild(entryFingerprint, node)
 	if err != nil {
 		return nil, err
 	}
@@ -93,38 +94,6 @@ func (node *IndexNode) addEntry(entry *IndexEntry) error {
 	return entry.saveToDir(entriesDir)
 }
 
-func (node *IndexNode) childPathForFingerprint(f Fingerprint) string {
-	fingerprintHash := sha256.Sum256(f.Bytes())
-	childDirName := hex.EncodeToString(fingerprintHash[:8])
-	return filepath.Join(node.path, childDirName)
-}
-
-func (node *IndexNode) childWithFingerprint(f Fingerprint, store IndexStore) (*IndexNode, error) {
-	childPath := node.childPathForFingerprint(f)
-
-	child, err := store.GetNode(childPath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Child doesn't already exist so create it
-	if child == nil {
-		child = &IndexNode{
-			path: childPath,
-			childrenByFingerprint: make(map[string]*IndexNodeHandle),
-		}
-
-		err = store.SaveNode(child, f)
-		if err != nil {
-			return nil, err
-		}
-
-		node.registerChild(child, f)
-	}
-
-	return child, err
-}
-
 func (node *IndexNode) deleteEntries() error {
 	entriesDir := filepath.Join(node.path, nodeEntriesDir)
 	return os.RemoveAll(entriesDir)
@@ -141,7 +110,7 @@ func (node *IndexNode) gatherNearest(entry *IndexEntry, childFingerprintSize int
 	var exactChild *IndexNode
 	if exactChildHandle != nil {
 		var err error
-		exactChild, err = index.Store.GetNode(exactChildHandle.Path)
+		exactChild, err = index.Store.GetChild(entryFingerprint, node)
 		if err != nil {
 			return err
 		}
@@ -179,7 +148,7 @@ func (node *IndexNode) gatherNearest(entry *IndexEntry, childFingerprintSize int
 			continue
 		}
 
-		childNode, err := index.Store.GetNode(child.Path)
+		childNode, err := index.Store.GetChild(child.Fingerprint, node)
 		if err != nil {
 			return err
 		}
@@ -213,7 +182,7 @@ func (node *IndexNode) maxChildDifferenceTo(f Fingerprint) float64 {
 func (node *IndexNode) pushEntriesToChildren(childFingerprintSize int, store IndexStore) error {
 	node.withEachEntry(func(entry *IndexEntry) error {
 		entryFingerprint := entry.FingerprintForSize(childFingerprintSize)
-		child, err := node.childWithFingerprint(entryFingerprint, store)
+		child, err := store.GetOrCreateChild(entryFingerprint, node)
 		if err != nil {
 			return err
 		}
