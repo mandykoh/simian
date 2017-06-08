@@ -12,12 +12,20 @@ type DiskIndexStore struct {
 }
 
 func (s *DiskIndexStore) GetNode(path string) (*IndexNode, error) {
+	_, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
 	node := &IndexNode{
 		path: path,
 		childrenByFingerprint: make(map[string]*IndexNodeHandle),
 	}
 
-	err := s.loadAllChildren(node)
+	err = s.loadAllChildren(node)
 	if err != nil {
 		return nil, err
 	}

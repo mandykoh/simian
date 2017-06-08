@@ -99,28 +99,30 @@ func (node *IndexNode) childPathForFingerprint(f Fingerprint) string {
 	return filepath.Join(node.path, childDirName)
 }
 
-func (node *IndexNode) childWithFingerprint(f Fingerprint, store IndexStore) (child *IndexNode, err error) {
+func (node *IndexNode) childWithFingerprint(f Fingerprint, store IndexStore) (*IndexNode, error) {
 	childPath := node.childPathForFingerprint(f)
-	_, err = os.Stat(childPath)
 
-	// Child doesn't already exist so create it if requested
-	if os.IsNotExist(err) {
+	child, err := store.GetNode(childPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Child doesn't already exist so create it
+	if child == nil {
 		child = &IndexNode{
 			path: childPath,
 			childrenByFingerprint: make(map[string]*IndexNodeHandle),
 		}
 
 		err = store.SaveNode(child, f)
-
 		if err != nil {
-			node.registerChild(child, f)
+			return nil, err
 		}
 
-	} else {
-		child, err = store.GetNode(childPath)
+		node.registerChild(child, f)
 	}
 
-	return
+	return child, err
 }
 
 func (node *IndexNode) deleteEntries() error {
