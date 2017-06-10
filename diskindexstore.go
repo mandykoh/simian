@@ -5,15 +5,19 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
+
+	"github.com/mandykoh/keva"
 )
 
 const nodeFingerprintFile = "fingerprint"
 const nodeEntriesDir = "entries"
 
 type DiskIndexStore struct {
-	RootPath string
+	rootPath string
+	nodes    *keva.Store
 }
 
 func (s *DiskIndexStore) AddEntry(entry *IndexEntry, node *IndexNode) error {
@@ -63,7 +67,7 @@ func (s *DiskIndexStore) GetOrCreateChild(f Fingerprint, parent *IndexNode) (*In
 }
 
 func (s *DiskIndexStore) GetRoot() (*IndexNode, error) {
-	return s.getNodeByPath(s.RootPath)
+	return s.getNodeByPath(path.Join(s.rootPath, "legacy"))
 }
 
 func (s *DiskIndexStore) RemoveEntries(node *IndexNode) error {
@@ -214,4 +218,11 @@ func (s *DiskIndexStore) saveNode(n *IndexNode, f Fingerprint) error {
 
 	_, err = file.Write(f.Bytes())
 	return err
+}
+
+func NewDiskIndexStore(rootPath string) *DiskIndexStore {
+	return &DiskIndexStore{
+		rootPath: rootPath,
+		nodes:    keva.NewStore(path.Join(rootPath, "nodes")),
+	}
 }

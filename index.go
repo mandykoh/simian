@@ -58,7 +58,7 @@ func NewIndex(path string, maxFingerprintSize int, maxEntryDifference float64) *
 	os.MkdirAll(path, 0700)
 
 	return &Index{
-		Store:              &DiskIndexStore{RootPath: path},
+		Store:              NewDiskIndexStore(path),
 		maxFingerprintSize: maxFingerprintSize,
 		maxEntryDifference: maxEntryDifference,
 	}

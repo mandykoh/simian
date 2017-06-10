@@ -3,6 +3,18 @@
 	"ignore": "test",
 	"package": [
 		{
+			"checksumSHA1": "hkHT2pYsqvJVbWqGR3Vt6K0KIUo=",
+			"path": "github.com/mandykoh/keva",
+			"revision": "958f7b64e49598bd87a38c19296c39d56de9d00d",
+			"revisionTime": "2017-08-02T13:19:59Z"
+		},
+		{
+			"checksumSHA1": "fk05LCN5pjUKlw10ErXFIYoFxZk=",
+			"path": "github.com/mandykoh/symlock",
+			"revision": "0362cd091b6b627bf9552d87ba15956d5e8bde32",
+			"revisionTime": "2017-06-17T12:17:10Z"
+		},
+		{
 			"checksumSHA1": "7E3Y1HU/UbsQF/dxMRdjFmx9QDQ=",
 			"path": "golang.org/x/image/draw",
 			"revision": "83686c547965220f8b5d75e83ddc67d73420a89f",
