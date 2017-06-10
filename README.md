@@ -1,6 +1,7 @@
 # simian
 
 [![GoDoc](https://godoc.org/github.com/mandykoh/simian?status.svg)](https://godoc.org/github.com/mandykoh/simian)
+[![Build Status](https://travis-ci.org/mandykoh/simian.svg?branch=master)](https://travis-ci.org/mandykoh/simian)
 
 A library for image similarity indexing and searching.
 
