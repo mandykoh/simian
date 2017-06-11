@@ -14,6 +14,7 @@ import (
 
 const nodeFingerprintFile = "fingerprint"
 const nodeEntriesDir = "entries"
+const thumbnailsDir = "thumbnails"
 
 type DiskIndexStore struct {
 	rootPath string
@@ -24,7 +25,7 @@ func (s *DiskIndexStore) AddEntry(entry *IndexEntry, node *IndexNode) error {
 	entriesDir := filepath.Join(node.path, nodeEntriesDir)
 	os.Mkdir(entriesDir, os.ModePerm)
 
-	err := entry.saveToDir(entriesDir)
+	err := entry.save(entriesDir, s.pathForThumbnail(entry))
 	if err != nil {
 		return err
 	}
@@ -183,6 +184,10 @@ func (s *DiskIndexStore) loadAllEntries(n *IndexNode) error {
 				if err != nil {
 					return err
 				}
+				err = entry.loadThumbnail(s.pathForThumbnail(entry))
+				if err != nil {
+					return err
+				}
 
 				n.registerEntry(entry)
 			}
@@ -200,6 +205,12 @@ func (s *DiskIndexStore) loadChild(n *IndexNode, childDirName string) (*IndexNod
 	}
 
 	return &IndexNodeHandle{Path: childPath, Fingerprint: childFingerprint}, nil
+}
+
+func (s *DiskIndexStore) pathForThumbnail(entry *IndexEntry) string {
+	thumbnailHash := sha256.Sum256(entry.MaxFingerprint.Bytes())
+	thumbnailHex := hex.EncodeToString(thumbnailHash[:])
+	return path.Join(s.rootPath, thumbnailsDir, thumbnailHex[0:2], thumbnailHex[2:4], thumbnailHex[4:])
 }
 
 func (s *DiskIndexStore) saveNode(n *IndexNode, f Fingerprint) error {
@@ -221,6 +232,15 @@ func (s *DiskIndexStore) saveNode(n *IndexNode, f Fingerprint) error {
 }
 
 func NewDiskIndexStore(rootPath string) *DiskIndexStore {
+	legacyNodesDir := path.Join(rootPath, "legacy")
+	err := os.MkdirAll(legacyNodesDir, os.FileMode(0700))
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+	}
+
+	thumbnailsDir := path.Join(rootPath, thumbnailsDir)
+	os.MkdirAll(thumbnailsDir, os.FileMode(0700))
+
 	return &DiskIndexStore{
 		rootPath: rootPath,
 		nodes:    keva.NewStore(path.Join(rootPath, "nodes")),

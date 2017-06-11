@@ -25,7 +25,32 @@ func (entry *IndexEntry) FingerprintForSize(size int) Fingerprint {
 	return NewFingerprint(entry.Thumbnail, size)
 }
 
-func (entry *IndexEntry) saveToDir(path string) error {
+func (entry *IndexEntry) loadThumbnail(path string) error {
+	thumbnailFile, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer thumbnailFile.Close()
+
+	entry.Thumbnail, err = png.Decode(thumbnailFile)
+	return err
+}
+
+func (entry *IndexEntry) saveThumbnail(path string) error {
+	thumbnailDir := filepath.Dir(path)
+	os.MkdirAll(thumbnailDir, os.FileMode(0700))
+
+	thumbnailOut, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer thumbnailOut.Close()
+
+	pngEncoder := png.Encoder{}
+	return pngEncoder.Encode(thumbnailOut, entry.Thumbnail)
+}
+
+func (entry *IndexEntry) save(path string, thumbnailPath string) error {
 	jsonFile := filepath.Join(path, entry.key+".entry")
 	jsonOut, err := os.Create(jsonFile)
 	if err != nil {
@@ -34,22 +59,12 @@ func (entry *IndexEntry) saveToDir(path string) error {
 	defer jsonOut.Close()
 
 	jsonEncoder := json.NewEncoder(jsonOut)
-	jsonEncoder.Encode(entry)
-
-	thumbnailFile := jsonFile + ".thumb"
-	thumbnailOut, err := os.Create(thumbnailFile)
-	if err != nil {
-		return err
-	}
-	defer thumbnailOut.Close()
-
-	pngEncoder := png.Encoder{}
-	err = pngEncoder.Encode(thumbnailOut, entry.Thumbnail)
+	err = jsonEncoder.Encode(entry)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	return entry.saveThumbnail(thumbnailPath)
 }
 
 func NewIndexEntry(image image.Image, maxFingerprintSize int) (*IndexEntry, error) {
@@ -84,15 +99,7 @@ func NewIndexEntryFromFile(file string) (*IndexEntry, error) {
 	}
 
 	jsonDecoder := json.NewDecoder(jsonFile)
-	jsonDecoder.Decode(entry)
-
-	thumbnailFile, err := os.Open(file + ".thumb")
-	if err != nil {
-		return nil, err
-	}
-	defer thumbnailFile.Close()
-
-	entry.Thumbnail, err = png.Decode(thumbnailFile)
+	err = jsonDecoder.Decode(entry)
 	if err != nil {
 		return nil, err
 	}
