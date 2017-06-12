@@ -187,7 +187,7 @@ func TestUnmarshalTextDeserialisesFromPackedHexStringBytes(t *testing.T) {
 func TestNewFingerprintGeneratesBinaryRepresentation(t *testing.T) {
 	f := NewFingerprint(testImage(), 3)
 
-	expected, _ := hex.DecodeString("0040804080804080c0")
+	expected, _ := hex.DecodeString("3060805080a070a0c0")
 
 	expectedString := hex.EncodeToString(expected)
 	actualString := hex.EncodeToString(f.samples)

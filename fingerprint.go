@@ -11,7 +11,7 @@ import (
 )
 
 const bitsPerSample = 4
-const sampleBitsMask = (2 << bitsPerSample) - 1
+const sampleBitsMask = (1 << bitsPerSample) - 1
 const samplesPerByte = 8 / bitsPerSample
 
 type Fingerprint struct {
@@ -118,7 +118,7 @@ func NewFingerprint(src image.Image, size int) Fingerprint {
 			r, g, b, _ := scaled.At(j, i).RGBA()
 			y, _, _ := color.RGBToYCbCr(uint8(r>>8), uint8(g>>8), uint8(b>>8))
 
-			fingerprintSamples[offset] = y & 0xC0
+			fingerprintSamples[offset] = y & (sampleBitsMask << (8 - bitsPerSample))
 			offset++
 		}
 	}
