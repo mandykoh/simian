@@ -53,7 +53,7 @@ func (s *DiskIndexStore) GetOrCreateChild(f Fingerprint, parent *IndexNode) (*In
 
 		node = &IndexNode{
 			path: childPath,
-			childrenByFingerprint: make(map[string]*IndexNodeHandle),
+			childFingerprintsByString: make(map[string]Fingerprint),
 		}
 
 		err := s.saveNode(node, f)
@@ -61,7 +61,7 @@ func (s *DiskIndexStore) GetOrCreateChild(f Fingerprint, parent *IndexNode) (*In
 			return nil, err
 		}
 
-		parent.registerChild(node, f)
+		parent.registerChild(f)
 	}
 
 	return node, nil
@@ -126,7 +126,7 @@ func (s *DiskIndexStore) getNodeByPath(path string) (*IndexNode, error) {
 
 	node := &IndexNode{
 		path: path,
-		childrenByFingerprint: make(map[string]*IndexNodeHandle),
+		childFingerprintsByString: make(map[string]Fingerprint),
 	}
 
 	err = s.loadAllChildren(node)
@@ -157,7 +157,7 @@ func (s *DiskIndexStore) loadAllChildren(n *IndexNode) error {
 					return err
 				}
 
-				n.registerChildByHandle(child)
+				n.registerChild(child)
 			}
 		}
 	}
@@ -197,14 +197,9 @@ func (s *DiskIndexStore) loadAllEntries(n *IndexNode) error {
 	return nil
 }
 
-func (s *DiskIndexStore) loadChild(n *IndexNode, childDirName string) (*IndexNodeHandle, error) {
+func (s *DiskIndexStore) loadChild(n *IndexNode, childDirName string) (Fingerprint, error) {
 	childPath := filepath.Join(n.path, childDirName)
-	childFingerprint, err := s.fingerprintForChild(childPath)
-	if err != nil {
-		return nil, err
-	}
-
-	return &IndexNodeHandle{Path: childPath, Fingerprint: childFingerprint}, nil
+	return s.fingerprintForChild(childPath)
 }
 
 func (s *DiskIndexStore) pathForThumbnail(entry *IndexEntry) string {

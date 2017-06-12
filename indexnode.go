@@ -10,10 +10,10 @@ import (
 var errResultLimitReached = errors.New("result limit reached")
 
 type IndexNode struct {
-	path                  string
-	children              []*IndexNodeHandle
-	childrenByFingerprint map[string]*IndexNodeHandle
-	entries               []*IndexEntry
+	path                      string
+	childFingerprints         []Fingerprint
+	childFingerprintsByString map[string]Fingerprint
+	entries                   []*IndexEntry
 }
 
 func (node *IndexNode) Add(entry *IndexEntry, childFingerprintSize int, index *Index) (*IndexNode, error) {
@@ -22,7 +22,7 @@ func (node *IndexNode) Add(entry *IndexEntry, childFingerprintSize int, index *I
 
 	entryFingerprint := entry.FingerprintForSize(childFingerprintSize)
 
-	if len(node.children) == 0 {
+	if len(node.childFingerprints) == 0 {
 
 		// We can go deeper and this new entry is sufficiently different to
 		// the rest, so split this leaf node by turning entries into children.
@@ -89,10 +89,13 @@ func (node *IndexNode) gatherNearest(entry *IndexEntry, childFingerprintSize int
 
 	// Check for an exact matching child
 	entryFingerprint := entry.FingerprintForSize(childFingerprintSize)
-	exactChildHandle := node.childrenByFingerprint[entryFingerprint.String()]
+	exactChildFingerprint, exactChildFingerprintExists := node.childFingerprintsByString[entryFingerprint.String()]
 
+	var exactChildFingerprintString string
 	var exactChild *IndexNode
-	if exactChildHandle != nil {
+	if exactChildFingerprintExists {
+		exactChildFingerprintString = exactChildFingerprint.String()
+
 		var err error
 		exactChild, err = index.Store.GetChild(entryFingerprint, node)
 		if err != nil {
@@ -113,11 +116,11 @@ func (node *IndexNode) gatherNearest(entry *IndexEntry, childFingerprintSize int
 		}
 	}
 
-	children := make([]*IndexNodeHandle, len(node.children))
-	copy(children, node.children)
+	childFingerprints := make([]Fingerprint, len(node.childFingerprints))
+	copy(childFingerprints, node.childFingerprints)
 
 	// Need more results - find and sort all children by nearness
-	sort.Sort(nodesByDifferenceToFingerprintWith(children, entryFingerprint))
+	sort.Sort(nodesByDifferenceToFingerprintWith(childFingerprints, entryFingerprint))
 
 	// fmt.Printf("Sorting %d children...\n", len(children))
 	// for i, child := range children {
@@ -126,13 +129,13 @@ func (node *IndexNode) gatherNearest(entry *IndexEntry, childFingerprintSize int
 	// }
 
 	// Recursively gather from nearest children
-	for i, child := range children {
+	for i, cf := range childFingerprints {
 		fmt.Printf("Visiting child %d\n", i)
-		if exactChild != nil && child.Path == exactChild.path {
+		if exactChildFingerprintExists && cf.String() == exactChildFingerprintString {
 			continue
 		}
 
-		childNode, err := index.Store.GetChild(child.Fingerprint, node)
+		childNode, err := index.Store.GetChild(cf, node)
 		if err != nil {
 			return err
 		}
@@ -177,14 +180,9 @@ func (node *IndexNode) pushEntriesToChildren(childFingerprintSize int, store Ind
 	return store.RemoveEntries(node)
 }
 
-func (node *IndexNode) registerChild(child *IndexNode, f Fingerprint) {
-	childHandle := &IndexNodeHandle{Path: child.path, Fingerprint: f}
-	node.registerChildByHandle(childHandle)
-}
-
-func (node *IndexNode) registerChildByHandle(childHandle *IndexNodeHandle) {
-	node.children = append(node.children, childHandle)
-	node.childrenByFingerprint[childHandle.Fingerprint.String()] = childHandle
+func (node *IndexNode) registerChild(childFingerprint Fingerprint) {
+	node.childFingerprints = append(node.childFingerprints, childFingerprint)
+	node.childFingerprintsByString[childFingerprint.String()] = childFingerprint
 }
 
 func (node *IndexNode) registerEntry(entry *IndexEntry) {
@@ -207,12 +205,12 @@ func (node *IndexNode) withEachEntry(action func(*IndexEntry) error) error {
 }
 
 type nodesByDifferenceToFingerprint struct {
-	nodes       []*IndexNodeHandle
-	differences []float64
+	nodeFingerprints []Fingerprint
+	differences      []float64
 }
 
 func (sorter *nodesByDifferenceToFingerprint) Len() int {
-	return len(sorter.nodes)
+	return len(sorter.nodeFingerprints)
 }
 
 func (sorter *nodesByDifferenceToFingerprint) Less(i, j int) bool {
@@ -220,20 +218,20 @@ func (sorter *nodesByDifferenceToFingerprint) Less(i, j int) bool {
 }
 
 func (sorter *nodesByDifferenceToFingerprint) Swap(i, j int) {
-	tmpNode := sorter.nodes[i]
-	sorter.nodes[i] = sorter.nodes[j]
-	sorter.nodes[j] = tmpNode
+	tmp := sorter.nodeFingerprints[i]
+	sorter.nodeFingerprints[i] = sorter.nodeFingerprints[j]
+	sorter.nodeFingerprints[j] = tmp
 
 	tmpDiff := sorter.differences[i]
 	sorter.differences[i] = sorter.differences[j]
 	sorter.differences[j] = tmpDiff
 }
 
-func nodesByDifferenceToFingerprintWith(nodes []*IndexNodeHandle, f Fingerprint) *nodesByDifferenceToFingerprint {
-	differences := make([]float64, len(nodes), len(nodes))
-	for i, n := range nodes {
-		differences[i] = n.Fingerprint.Difference(f)
+func nodesByDifferenceToFingerprintWith(nodeFingerprints []Fingerprint, f Fingerprint) *nodesByDifferenceToFingerprint {
+	differences := make([]float64, len(nodeFingerprints), len(nodeFingerprints))
+	for i, nf := range nodeFingerprints {
+		differences[i] = nf.Difference(f)
 	}
 
-	return &nodesByDifferenceToFingerprint{nodes: nodes, differences: differences}
+	return &nodesByDifferenceToFingerprint{nodeFingerprints: nodeFingerprints, differences: differences}
 }
