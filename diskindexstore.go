@@ -53,7 +53,7 @@ func (s *DiskIndexStore) GetOrCreateChild(f Fingerprint, parent *IndexNode) (*In
 
 		node = &IndexNode{
 			path: childPath,
-			childFingerprintsByString: make(map[string]Fingerprint),
+			childFingerprintsByString: make(map[string]*Fingerprint),
 		}
 
 		err := s.saveNode(node, f)
@@ -126,7 +126,7 @@ func (s *DiskIndexStore) getNodeByPath(path string) (*IndexNode, error) {
 
 	node := &IndexNode{
 		path: path,
-		childFingerprintsByString: make(map[string]Fingerprint),
+		childFingerprintsByString: make(map[string]*Fingerprint),
 	}
 
 	err = s.loadAllChildren(node)

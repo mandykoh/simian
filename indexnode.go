@@ -1,6 +1,7 @@
 package simian
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -12,7 +13,7 @@ var errResultLimitReached = errors.New("result limit reached")
 type IndexNode struct {
 	path                      string
 	childFingerprints         []Fingerprint
-	childFingerprintsByString map[string]Fingerprint
+	childFingerprintsByString map[string]*Fingerprint
 	entries                   []*IndexEntry
 }
 
@@ -59,6 +60,35 @@ func (node *IndexNode) FindNearest(entry *IndexEntry, childFingerprintSize int, 
 	}
 
 	return results, nil
+}
+
+func (node *IndexNode) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&indexNodeJSON{
+		Path:              node.path,
+		ChildFingerprints: node.childFingerprints,
+		Entries:           node.entries,
+	})
+}
+
+func (node *IndexNode) UnmarshalJSON(b []byte) error {
+	var value indexNodeJSON
+	err := json.Unmarshal(b, &value)
+	if err != nil {
+		return err
+	}
+
+	node.path = value.Path
+	node.childFingerprints = value.ChildFingerprints
+
+	node.childFingerprintsByString = make(map[string]*Fingerprint)
+	for i := 0; i < len(node.childFingerprints); i++ {
+		f := &node.childFingerprints[i]
+		node.childFingerprintsByString[f.String()] = f
+	}
+
+	node.entries = value.Entries
+
+	return nil
 }
 
 func (node *IndexNode) addSimilarEntriesTo(entries *[]*IndexEntry, fingerprint Fingerprint, maxDifference float64) error {
@@ -182,7 +212,7 @@ func (node *IndexNode) pushEntriesToChildren(childFingerprintSize int, store Ind
 
 func (node *IndexNode) registerChild(childFingerprint Fingerprint) {
 	node.childFingerprints = append(node.childFingerprints, childFingerprint)
-	node.childFingerprintsByString[childFingerprint.String()] = childFingerprint
+	node.childFingerprintsByString[childFingerprint.String()] = &node.childFingerprints[len(node.childFingerprints)-1]
 }
 
 func (node *IndexNode) registerEntry(entry *IndexEntry) {
@@ -202,6 +232,12 @@ func (node *IndexNode) withEachEntry(action func(*IndexEntry) error) error {
 	}
 
 	return nil
+}
+
+type indexNodeJSON struct {
+	Path              string        `json:"path"`
+	ChildFingerprints []Fingerprint `json:"childFingerprints"`
+	Entries           []*IndexEntry `json:"entries"`
 }
 
 type nodesByDifferenceToFingerprint struct {
