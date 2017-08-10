@@ -226,18 +226,23 @@ func (s *DiskIndexStore) saveNode(n *IndexNode, f Fingerprint) error {
 	return err
 }
 
-func NewDiskIndexStore(rootPath string) *DiskIndexStore {
+func NewDiskIndexStore(rootPath string) (*DiskIndexStore, error) {
 	legacyNodesDir := path.Join(rootPath, "legacy")
 	err := os.MkdirAll(legacyNodesDir, os.FileMode(0700))
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		return nil, err
 	}
 
 	thumbnailsDir := path.Join(rootPath, thumbnailsDir)
 	os.MkdirAll(thumbnailsDir, os.FileMode(0700))
 
+	nodeStore, err := keva.NewStore(path.Join(rootPath, "nodes"))
+	if err != nil {
+		return nil, err
+	}
+
 	return &DiskIndexStore{
 		rootPath: rootPath,
-		nodes:    keva.NewStore(path.Join(rootPath, "nodes")),
-	}
+		nodes:    nodeStore,
+	}, nil
 }

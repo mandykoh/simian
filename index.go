@@ -54,14 +54,22 @@ func (i *Index) FindNearest(image image.Image, maxResults int, maxDifference flo
 	return results, err
 }
 
-func NewIndex(path string, maxFingerprintSize int, maxEntryDifference float64) *Index {
-	os.MkdirAll(path, 0700)
+func NewIndex(path string, maxFingerprintSize int, maxEntryDifference float64) (*Index, error) {
+	err := os.MkdirAll(path, 0700)
+	if err != nil {
+		return nil, err
+	}
+
+	indexStore, err := NewDiskIndexStore(path)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Index{
-		Store:              NewDiskIndexStore(path),
+		Store:              indexStore,
 		maxFingerprintSize: maxFingerprintSize,
 		maxEntryDifference: maxEntryDifference,
-	}
+	}, err
 }
 
 type entriesByDifferenceToEntry struct {
