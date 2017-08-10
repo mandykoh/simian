@@ -16,13 +16,39 @@ const keyBitLength = 256
 
 type IndexEntry struct {
 	key            string
-	Thumbnail      image.Image            `json:"-"`
-	MaxFingerprint Fingerprint            `json:"maxFingerprint"`
-	Attributes     map[string]interface{} `json:"attributes"`
+	Thumbnail      image.Image
+	MaxFingerprint Fingerprint
+	Attributes     map[string]interface{}
 }
 
 func (entry *IndexEntry) FingerprintForSize(size int) Fingerprint {
 	return NewFingerprint(entry.Thumbnail, size)
+}
+
+func (entry *IndexEntry) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&indexEntryJSON{
+		MaxFingerprint: entry.MaxFingerprint.Bytes(),
+		Attributes:     entry.Attributes,
+	})
+}
+
+func (entry *IndexEntry) UnmarshalJSON(b []byte) error {
+	var value indexEntryJSON
+	err := json.Unmarshal(b, &value)
+	if err != nil {
+		return err
+	}
+
+	var fingerprint Fingerprint
+	err = fingerprint.UnmarshalBytes(value.MaxFingerprint)
+	if err != nil {
+		return err
+	}
+
+	entry.MaxFingerprint = fingerprint
+	entry.Attributes = value.Attributes
+
+	return nil
 }
 
 func (entry *IndexEntry) loadThumbnail(path string) error {
@@ -134,4 +160,9 @@ func makeThumbnail(src image.Image, size int) image.Image {
 	draw.BiLinear.Scale(thumbnail, thumbnail.Bounds(), src, src.Bounds(), draw.Src, nil)
 
 	return thumbnail
+}
+
+type indexEntryJSON struct {
+	MaxFingerprint []byte `json:"maxFingerprint"`
+	Attributes     map[string]interface{}
 }
