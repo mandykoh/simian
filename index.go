@@ -1,6 +1,7 @@
 package simian
 
 import (
+	"fmt"
 	"image"
 	"math"
 	"os"
@@ -26,12 +27,20 @@ func (i *Index) Add(image image.Image, metadata interface{}) (key string, err er
 		return "", err
 	}
 
-	node, err := root.Add(entry, rootFingerprintSize+1, i)
+	var rootFingerprint Fingerprint
+
+	_, err = root.Add(entry, rootFingerprint, rootFingerprintSize+1, i)
 	if err != nil {
 		return "", err
 	}
 
-	return node.path, nil
+	fmt.Printf("Root node has %d children and %d entries\n", len(root.childFingerprints), len(root.entries))
+
+	return "", nil
+}
+
+func (i *Index) Close() error {
+	return i.Store.Close()
 }
 
 func (i *Index) FindNearest(image image.Image, maxResults int, maxDifference float64) ([]*IndexEntry, error) {

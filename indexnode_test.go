@@ -11,7 +11,6 @@ func TestIndexNode(t *testing.T) {
 
 		t.Run("should roundtrip all fields", func(t *testing.T) {
 			n := &IndexNode{
-				path: "some-path",
 				childFingerprintsByString: make(map[string]*Fingerprint),
 			}
 
@@ -39,10 +38,6 @@ func TestIndexNode(t *testing.T) {
 			err = json.Unmarshal(jsonBytes, &result)
 			if err != nil {
 				t.Fatalf("Error unmarshalling JSON: %v", err)
-			}
-
-			if result.path != n.path {
-				t.Errorf("Expected path '%s' but got '%s'", n.path, result.path)
 			}
 
 			if actual, expected := len(result.childFingerprints), len(n.childFingerprints); actual != expected {

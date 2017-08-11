@@ -11,17 +11,16 @@ import (
 var errResultLimitReached = errors.New("result limit reached")
 
 type IndexNode struct {
-	path                      string
 	childFingerprints         []Fingerprint
 	childFingerprintsByString map[string]*Fingerprint
 	entries                   []*IndexEntry
 }
 
-func (node *IndexNode) Add(entry *IndexEntry, childFingerprintSize int, index *Index) (*IndexNode, error) {
+func (node *IndexNode) Add(entry *IndexEntry, nodeFingerprint Fingerprint, childFingerprintSize int, index *Index) (*IndexNode, error) {
 
-	fmt.Printf("Node[%s] Add %d\n", node.path, childFingerprintSize)
+	fmt.Printf("Node Add %d\n", childFingerprintSize)
 
-	entryFingerprint := entry.FingerprintForSize(childFingerprintSize)
+	childFingerprint := entry.FingerprintForSize(childFingerprintSize)
 
 	if len(node.childFingerprints) == 0 {
 
@@ -30,11 +29,12 @@ func (node *IndexNode) Add(entry *IndexEntry, childFingerprintSize int, index *I
 		fmt.Printf("Max Diff: %f\n", node.maxChildDifferenceTo(entry.MaxFingerprint))
 		if childFingerprintSize < index.maxFingerprintSize && node.maxChildDifferenceTo(entry.MaxFingerprint) > index.maxEntryDifference {
 			fmt.Printf("Pushing entries to children\n")
-			node.pushEntriesToChildren(childFingerprintSize, index.Store)
+			node.pushEntriesToChildren(nodeFingerprint, childFingerprintSize, index.Store)
+			fmt.Printf("Done pushing entries to children\n")
 
 		} else {
-			fmt.Printf("Adding entry %s\n", node.path)
-			err := index.Store.AddEntry(entry, node)
+			fmt.Printf("Adding entry %s\n", nodeFingerprint.String())
+			err := index.Store.AddEntry(entry, node, nodeFingerprint)
 			if err != nil {
 				return nil, err
 			}
@@ -43,19 +43,19 @@ func (node *IndexNode) Add(entry *IndexEntry, childFingerprintSize int, index *I
 		}
 	}
 
-	child, err := index.Store.GetOrCreateChild(entryFingerprint, node)
+	child, err := index.Store.GetOrCreateChild(childFingerprint, node, nodeFingerprint)
 	if err != nil {
 		return nil, err
 	}
 
-	return child.Add(entry, childFingerprintSize+1, index)
+	return child.Add(entry, childFingerprint, childFingerprintSize+1, index)
 }
 
 func (node *IndexNode) FindNearest(entry *IndexEntry, childFingerprintSize int, index *Index, maxResults int, maxDifference float64) ([]*IndexEntry, error) {
 	results := make([]*IndexEntry, 0, maxResults)
 
 	err := node.gatherNearest(entry, childFingerprintSize, index, maxDifference, &results)
-	if err != errResultLimitReached {
+	if err != nil && err != errResultLimitReached {
 		return nil, err
 	}
 
@@ -64,7 +64,6 @@ func (node *IndexNode) FindNearest(entry *IndexEntry, childFingerprintSize int, 
 
 func (node *IndexNode) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&indexNodeJSON{
-		Path:              node.path,
 		ChildFingerprints: node.childFingerprints,
 		Entries:           node.entries,
 	})
@@ -77,7 +76,6 @@ func (node *IndexNode) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	node.path = value.Path
 	node.childFingerprints = value.ChildFingerprints
 
 	node.childFingerprintsByString = make(map[string]*Fingerprint)
@@ -115,11 +113,11 @@ func (node *IndexNode) addSimilarEntriesTo(entries *[]*IndexEntry, fingerprint F
 
 func (node *IndexNode) gatherNearest(entry *IndexEntry, childFingerprintSize int, index *Index, maxDifference float64, results *[]*IndexEntry) error {
 
-	fmt.Printf("%d gatherNearest\n", childFingerprintSize)
+	fmt.Printf("%d gatherNearest %d\n", childFingerprintSize, len(node.entries))
 
 	// Check for an exact matching child
-	entryFingerprint := entry.FingerprintForSize(childFingerprintSize)
-	exactChildFingerprint, exactChildFingerprintExists := node.childFingerprintsByString[entryFingerprint.String()]
+	childFingerprint := entry.FingerprintForSize(childFingerprintSize)
+	exactChildFingerprint, exactChildFingerprintExists := node.childFingerprintsByString[childFingerprint.String()]
 
 	var exactChildFingerprintString string
 	var exactChild *IndexNode
@@ -127,7 +125,7 @@ func (node *IndexNode) gatherNearest(entry *IndexEntry, childFingerprintSize int
 		exactChildFingerprintString = exactChildFingerprint.String()
 
 		var err error
-		exactChild, err = index.Store.GetChild(entryFingerprint, node)
+		exactChild, err = index.Store.GetChild(childFingerprint, node)
 		if err != nil {
 			return err
 		}
@@ -150,7 +148,7 @@ func (node *IndexNode) gatherNearest(entry *IndexEntry, childFingerprintSize int
 	copy(childFingerprints, node.childFingerprints)
 
 	// Need more results - find and sort all children by nearness
-	sort.Sort(nodesByDifferenceToFingerprintWith(childFingerprints, entryFingerprint))
+	sort.Sort(nodesByDifferenceToFingerprintWith(childFingerprints, childFingerprint))
 
 	// fmt.Printf("Sorting %d children...\n", len(children))
 	// for i, child := range children {
@@ -196,18 +194,17 @@ func (node *IndexNode) maxChildDifferenceTo(f Fingerprint) float64 {
 	return maxDifference
 }
 
-func (node *IndexNode) pushEntriesToChildren(childFingerprintSize int, store IndexStore) error {
+func (node *IndexNode) pushEntriesToChildren(nodeFingerprint Fingerprint, childFingerprintSize int, store IndexStore) error {
 	node.withEachEntry(func(entry *IndexEntry) error {
-		entryFingerprint := entry.FingerprintForSize(childFingerprintSize)
-		child, err := store.GetOrCreateChild(entryFingerprint, node)
+		childFingerprint := entry.FingerprintForSize(childFingerprintSize)
+		child, err := store.GetOrCreateChild(childFingerprint, node, nodeFingerprint)
 		if err != nil {
 			return err
 		}
-		store.AddEntry(entry, child)
-		return nil
+		return store.AddEntry(entry, child, childFingerprint)
 	})
 
-	return store.RemoveEntries(node)
+	return store.RemoveEntries(node, nodeFingerprint)
 }
 
 func (node *IndexNode) registerChild(childFingerprint Fingerprint) {
@@ -235,7 +232,6 @@ func (node *IndexNode) withEachEntry(action func(*IndexEntry) error) error {
 }
 
 type indexNodeJSON struct {
-	Path              string        `json:"path"`
 	ChildFingerprints []Fingerprint `json:"childFingerprints"`
 	Entries           []*IndexEntry `json:"entries"`
 }
