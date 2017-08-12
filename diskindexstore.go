@@ -142,12 +142,6 @@ func (s *DiskIndexStore) pathForThumbnail(entry *IndexEntry) string {
 }
 
 func NewDiskIndexStore(rootPath string) (*DiskIndexStore, error) {
-	legacyNodesDir := path.Join(rootPath, "legacy")
-	err := os.MkdirAll(legacyNodesDir, os.FileMode(0700))
-	if err != nil {
-		return nil, err
-	}
-
 	thumbnailsDir := path.Join(rootPath, thumbnailsDir)
 	os.MkdirAll(thumbnailsDir, os.FileMode(0700))
 
