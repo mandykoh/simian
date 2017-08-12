@@ -3,10 +3,10 @@
 	"ignore": "test",
 	"package": [
 		{
-			"checksumSHA1": "hkHT2pYsqvJVbWqGR3Vt6K0KIUo=",
+			"checksumSHA1": "3rZWEvKplW9AuWwjuPyCJNyBfhA=",
 			"path": "github.com/mandykoh/keva",
-			"revision": "958f7b64e49598bd87a38c19296c39d56de9d00d",
-			"revisionTime": "2017-08-02T13:19:59Z"
+			"revision": "14866bae2ca726b120aa63fce47e5ac93efb30d0",
+			"revisionTime": "2017-08-12T03:44:41Z"
 		},
 		{
 			"checksumSHA1": "fk05LCN5pjUKlw10ErXFIYoFxZk=",
