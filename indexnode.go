@@ -28,7 +28,7 @@ func (node *IndexNode) Add(entry *IndexEntry, nodeFingerprint Fingerprint, child
 		// the rest, so split this leaf node by turning entries into children.
 		fmt.Printf("Max Diff: %f\n", node.maxChildDifferenceTo(entry.MaxFingerprint))
 		if childFingerprintSize < index.maxFingerprintSize && node.maxChildDifferenceTo(entry.MaxFingerprint) > index.maxEntryDifference {
-			fmt.Printf("Pushing entries to children\n")
+			fmt.Printf("Pushing %d entries to children\n", len(node.entries))
 			node.pushEntriesToChildren(nodeFingerprint, childFingerprintSize, index.Store)
 			fmt.Printf("Done pushing entries to children\n")
 
@@ -201,6 +201,7 @@ func (node *IndexNode) pushEntriesToChildren(nodeFingerprint Fingerprint, childF
 		if err != nil {
 			return err
 		}
+		fmt.Printf("Pushing entry to child\n")
 		return store.AddEntry(entry, child, childFingerprint)
 	})
 
