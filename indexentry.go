@@ -73,10 +73,10 @@ func (entry *IndexEntry) saveThumbnail(path string) error {
 	return pngEncoder.Encode(thumbnailOut, entry.Thumbnail)
 }
 
-func NewIndexEntry(image image.Image, maxFingerprintSize int) (*IndexEntry, error) {
+func NewIndexEntry(image image.Image, maxFingerprintSize int, attributes map[string]interface{}) (*IndexEntry, error) {
 	entry := &IndexEntry{
 		Thumbnail:  makeThumbnail(image, maxFingerprintSize*2),
-		Attributes: make(map[string]interface{}),
+		Attributes: attributes,
 	}
 
 	entry.MaxFingerprint = entry.FingerprintForSize(maxFingerprintSize)

@@ -16,8 +16,8 @@ type Index struct {
 	maxEntryDifference float64
 }
 
-func (i *Index) Add(image image.Image, metadata interface{}) (key string, err error) {
-	entry, err := NewIndexEntry(image, i.maxFingerprintSize)
+func (i *Index) Add(image image.Image, metadata map[string]interface{}) (key string, err error) {
+	entry, err := NewIndexEntry(image, i.maxFingerprintSize, metadata)
 	if err != nil {
 		return "", nil
 	}
@@ -44,7 +44,9 @@ func (i *Index) Close() error {
 }
 
 func (i *Index) FindNearest(image image.Image, maxResults int, maxDifference float64) ([]*IndexEntry, error) {
-	entry, err := NewIndexEntry(image, i.maxFingerprintSize)
+	var dummy map[string]interface{}
+
+	entry, err := NewIndexEntry(image, i.maxFingerprintSize, dummy)
 	if err != nil {
 		return nil, nil
 	}
