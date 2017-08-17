@@ -28,3 +28,47 @@ func DCT(width int, height int, values []int8) (result []int16) {
 
 	return
 }
+
+func flattenZigZag(width, height int, values []int16) []int16 {
+	result := make([]int16, width*height)
+
+	x := 0
+	y := 0
+
+	pAxis := &x
+	sAxis := &y
+	pBound := width
+	sBound := height
+
+	for i := 0; i < len(result); i++ {
+		result[i] = values[y*width+x]
+
+		if *pAxis+1 < pBound && *sAxis-1 >= 0 {
+
+			// Unobstructed diagonal traversal
+			*pAxis++
+			*sAxis--
+			continue
+
+		} else if *pAxis+1 < pBound {
+
+			// Obstructed at the top/left; move right/down
+			*pAxis++
+
+		} else {
+
+			// Obstructed at the bottom/right; move right/down
+			*sAxis++
+		}
+
+		// Swap direction (obstructed)
+		tmpAxis := pAxis
+		pAxis = sAxis
+		sAxis = tmpAxis
+		tmpBound := pBound
+		pBound = sBound
+		sBound = tmpBound
+	}
+
+	return result
+}
