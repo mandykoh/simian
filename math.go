@@ -31,7 +31,7 @@ func DCT(width int, height int, values []int8) (result []int16) {
 	return
 }
 
-func flattenRecursiveSquares(squareMatrix []int16) []int16 {
+func FlattenRecursiveSquares(squareMatrix []int16) []int16 {
 	sideLength := int(math.Sqrt(float64(len(squareMatrix))))
 	result := make([]int16, sideLength*sideLength)
 
