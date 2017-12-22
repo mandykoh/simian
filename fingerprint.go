@@ -36,6 +36,7 @@ func NewFingerprintFromImage(src image.Image) *Fingerprint {
 	samples := make([]int8, SamplesPerFingerprint)
 	offset := 0
 
+	// Sample from RGBA pixel values
 	for i := scaled.Bounds().Min.Y; i < scaled.Bounds().Max.Y; i++ {
 		for j := scaled.Bounds().Min.X; j < scaled.Bounds().Max.X; j++ {
 			r, g, b, _ := scaled.At(j, i).RGBA()
@@ -52,6 +53,7 @@ func NewFingerprintFromImage(src image.Image) *Fingerprint {
 	min := int16(math.MaxInt16)
 	max := int16(math.MinInt16)
 
+	// Find the dynamic range for DC coefficients
 	for i := 1; i < len(dct); i++ {
 		if dct[i] < min {
 			min = dct[i]
@@ -65,7 +67,10 @@ func NewFingerprintFromImage(src image.Image) *Fingerprint {
 
 	fmt.Printf("DCT:\n")
 
+	// Scale AC coefficient down by fixed amount
 	dct[0] >>= fingerprintACShift
+
+	// Scale DC coefficients down according to dynamic range
 	for i := 0; i < len(dct); i++ {
 		if i != 0 {
 			dct[i] = int16(float64(dct[i]) * scale)
