@@ -1,213 +1,156 @@
 package simian
 
 import (
-	"encoding/hex"
-	"fmt"
 	"image"
 	"image/color"
-	"math"
+	"math/rand"
 	"testing"
 )
 
 func TestFingerprint(t *testing.T) {
 
-	testImage := func() image.Image {
+	randomImage := func() image.Image {
 		img := image.NewNRGBA(image.Rectangle{Max: image.Point{X: 256, Y: 256}})
-
 		for i := img.Bounds().Min.Y; i < img.Bounds().Max.Y; i++ {
 			for j := img.Bounds().Min.X; j < img.Bounds().Max.X; j++ {
-				img.Set(j, i, color.RGBA{uint8(i), uint8(j), uint8(i), 255})
+				img.Set(j, i, color.RGBA{uint8(rand.Int()), uint8(rand.Int()), uint8(rand.Int()), 255})
 			}
 		}
 
 		return img
 	}
 
-	t.Run("Bytes() serialises to packed bytes", func(t *testing.T) {
-		f := Fingerprint{samples: []byte{0x00, 0x00, 0xF0, 0xF0}}
+	t.Run("dctToFingerprint()", func(t *testing.T) {
 
-		actualString := fmt.Sprintf("%x", f.Bytes())
-
-		if actualString != "00ff" {
-			t.Errorf("Fingerprint '%s' doesn't match expected", actualString)
-		}
-	})
-
-	t.Run("Difference() returns zero for same fingerprint", func(t *testing.T) {
-		f1 := Fingerprint{samples: []byte{0, 1, 2, 3, 130, 255}}
-		f2 := Fingerprint{samples: []byte{0, 1, 2, 3, 130, 255}}
-
-		diff := f1.Difference(f2)
-
-		if diff != 0.0 {
-			t.Errorf("Difference %f doesn't match expected", diff)
-		}
-
-		diff = f2.Difference(f1)
-
-		if diff != 0.0 {
-			t.Errorf("Difference %f doesn't match expected", diff)
-		}
-	})
-
-	t.Run("Difference() returns one for completely different fingerprint", func(t *testing.T) {
-		f1 := Fingerprint{samples: []byte{0, 0, 0, 255, 255, 255}}
-		f2 := Fingerprint{samples: []byte{255, 255, 255, 0, 0, 0}}
-
-		diff := f1.Difference(f2)
-
-		if diff != 1.0 {
-			t.Errorf("Difference %f doesn't match expected", diff)
-		}
-
-		diff = f2.Difference(f1)
-
-		if diff != 1.0 {
-			t.Errorf("Difference %f doesn't match expected", diff)
-		}
-	})
-
-	t.Run("Difference() returns one for differently sized fingerprint", func(t *testing.T) {
-		f1 := Fingerprint{samples: []byte{255, 255, 255}}
-		f2 := Fingerprint{samples: []byte{255, 255, 255, 255}}
-
-		diff := f1.Difference(f2)
-
-		if diff != 1.0 {
-			t.Errorf("Difference %f doesn't match expected", diff)
-		}
-
-		diff = f2.Difference(f1)
-
-		if diff != 1.0 {
-			t.Errorf("Difference %f doesn't match expected", diff)
-		}
-	})
-
-	t.Run("Distance() returns componentwise absolute difference", func(t *testing.T) {
-		f1 := Fingerprint{samples: []byte{0, 1, 2, 3, 130, 255}}
-		f2 := Fingerprint{samples: []byte{1, 3, 6, 11, 146, 0}}
-
-		dist := f1.Distance(f2)
-
-		if dist != 286 {
-			t.Errorf("Distance %d doesn't match expected", dist)
-		}
-
-		dist = f2.Distance(f1)
-
-		if dist != 286 {
-			t.Errorf("Distance %d doesn't match expected", dist)
-		}
-	})
-
-	t.Run("Distance() returns max value for mismatched length", func(t *testing.T) {
-		f1 := Fingerprint{samples: []byte{0, 0, 0}}
-		f2 := Fingerprint{samples: []byte{0, 0, 0, 0}}
-
-		dist := f1.Distance(f2)
-
-		if dist != math.MaxUint64 {
-			t.Errorf("Distance %d wasn't max uint64", dist)
-		}
-	})
-
-	t.Run("MarshalText() serialises to packed hex string bytes", func(t *testing.T) {
-		f := Fingerprint{samples: []byte{0x00, 0x00, 0xFF, 0xFF}}
-
-		actual, err := f.MarshalText()
-
-		if err != nil {
-			t.Errorf("Error while marshalling: %s", err)
-		}
-		if string(actual) != "00ff" {
-			t.Errorf("Fingerprint '%s' doesn't match expected", actual)
-		}
-	})
-
-	t.Run("Size() returns correct side length", func(t *testing.T) {
-		img := testImage()
-
-		f := NewFingerprint(img, 3)
-		size := f.Size()
-
-		if size != 3 {
-			t.Errorf("Size %d doesn't match expected", size)
-		}
-
-		f = NewFingerprint(img, 7)
-		size = f.Size()
-
-		if size != 7 {
-			t.Errorf("Size %d doesn't match expected", size)
-		}
-
-		f = Fingerprint{samples: make([]byte, 5*5)}
-		size = f.Size()
-
-		if size != 5 {
-			t.Errorf("Size %d doesn't match expected", size)
-		}
-	})
-
-	t.Run("String() serialises to packed hex string", func(t *testing.T) {
-		f := Fingerprint{samples: []byte{
-			0xF0, 0xF0, 0xF0, 0xF0, 0xF0,
-			0xF0, 0xF0, 0xF0, 0xF0, 0xF0,
-			0xF0, 0xF0, 0xF0, 0xF0, 0xF0,
-			0xF0, 0xF0, 0xF0, 0xF0, 0xF0,
-			0xF0, 0xF0, 0xF0, 0xF0, 0xF0,
-		}}
-
-		actualString := fmt.Sprintf("%s", f)
-
-		if actualString != "fffffffffffffffffffffffff0" {
-			t.Errorf("Fingerprint '%s' doesn't match expected", actualString)
-		}
-	})
-
-	t.Run("UnmarshalBytes() deserialises from packed bytes", func(t *testing.T) {
-		b := []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xF0}
-
-		f := Fingerprint{}
-		f.UnmarshalBytes(b)
-
-		if len(f.samples) != 25 {
-			t.Fatalf("Fingerprint length %d doesn't match expected", len(f.samples))
-		}
-		for i := 0; i < 25; i++ {
-			if f.samples[i] != 0xF0 {
-				t.Errorf("Fingerprint byte '%d' doesn't match expected", f.samples[i])
+		t.Run("produces a recursive square traversal of a square 2D matrix", func(t *testing.T) {
+			m := []int16{
+				0, 1, 4, 9, 16, 25, 36, 49,
+				2, 3, 6, 11, 18, 27, 38, 51,
+				5, 7, 8, 13, 20, 29, 40, 53,
+				10, 12, 14, 15, 22, 31, 42, 55,
+				17, 19, 21, 23, 24, 33, 44, 57,
+				26, 28, 30, 32, 34, 35, 46, 59,
+				37, 39, 41, 43, 45, 47, 48, 61,
+				50, 52, 54, 56, 58, 60, 62, 63,
 			}
-		}
-	})
 
-	t.Run("UnmarshalText() deserialises from packed hex string bytes", func(t *testing.T) {
-		text := []byte("fffffffffffffffffffffffff0")
+			result := dctToFingerprint(m)
 
-		f := Fingerprint{}
-		f.UnmarshalText(text)
-
-		if len(f.samples) != 25 {
-			t.Fatalf("Fingerprint length %d doesn't match expected", len(f.samples))
-		}
-		for i := 0; i < 25; i++ {
-			if f.samples[i] != 0xF0 {
-				t.Errorf("Fingerprint byte '%d' doesn't match expected", f.samples[i])
+			if expected, actual := len(m), len(result); expected != actual {
+				t.Fatalf("Expected result to be of length %d but got %d", expected, actual)
 			}
-		}
+
+			for i := 0; i < len(result); i++ {
+				if result[i] != int16(i) {
+					t.Errorf("Expected element %d but got %d", i, result[i])
+				}
+			}
+		})
 	})
 
-	t.Run("NewFingerprint() generates binary representation", func(t *testing.T) {
-		f := NewFingerprint(testImage(), 3)
+	t.Run("Difference()", func(t *testing.T) {
 
-		expected, _ := hex.DecodeString("3060805080a070a0c0")
+		t.Run("returns 0.0 for an exact match", func(t *testing.T) {
+			f := NewFingerprintFromImage(randomImage())
 
-		expectedString := hex.EncodeToString(expected)
-		actualString := hex.EncodeToString(f.samples)
+			difference := f.Difference(f)
 
-		if expectedString != actualString {
-			t.Fatalf("Fingerprint '%s' doesn't match expected '%s'", actualString, expectedString)
-		}
+			if difference > 0.00001 {
+				t.Errorf("Expected no difference but got %f", difference)
+			}
+		})
+
+		t.Run("returns higher than 0.0 for different images", func(t *testing.T) {
+			f1 := NewFingerprintFromImage(randomImage())
+			f2 := NewFingerprintFromImage(randomImage())
+
+			difference := f1.Difference(f2)
+
+			if difference <= 0.001 {
+				t.Errorf("Expected some difference but got %f", difference)
+			}
+		})
+	})
+
+	t.Run("FingerprintFromImage()", func(t *testing.T) {
+
+		t.Run("should product correct fingerprint from DCT of white image", func(t *testing.T) {
+			img := image.NewNRGBA(image.Rectangle{Max: image.Point{X: 256, Y: 256}})
+			for i := img.Bounds().Min.Y; i < img.Bounds().Max.Y; i++ {
+				for j := img.Bounds().Min.X; j < img.Bounds().Max.X; j++ {
+					img.Set(j, i, color.RGBA{uint8(255), uint8(255), uint8(255), 255})
+				}
+			}
+
+			f := NewFingerprintFromImage(img)
+
+			if expected, actual := int16(8064>>fingerprintACShift), f[0]; actual != expected {
+				t.Errorf("Expected value %d but found %d at position 0", expected, actual)
+			}
+
+			for i := 1; i < len(f); i++ {
+				if expected, actual := int16(0), f[i]; actual != expected {
+					t.Errorf("Expected value %d but found %d at position %d", expected, actual, i)
+				}
+			}
+		})
+
+		t.Run("should product correct fingerprint from DCT of checkered image", func(t *testing.T) {
+			img := image.NewNRGBA(image.Rectangle{Max: image.Point{X: fingerprintDCTSideLength, Y: fingerprintDCTSideLength}})
+			offset := 0
+			for i := img.Bounds().Min.Y; i < img.Bounds().Max.Y; i++ {
+				for j := img.Bounds().Min.X; j < img.Bounds().Max.X; j++ {
+					if offset%2 == 0 {
+						img.Set(j, i, color.RGBA{uint8(255), uint8(255), uint8(255), 255})
+					} else {
+						img.Set(j, i, color.RGBA{uint8(0), uint8(0), uint8(0), 255})
+					}
+					offset++
+				}
+				offset++
+			}
+
+			f := NewFingerprintFromImage(img)
+
+			expected := Fingerprint{
+				-1, 0, 0, 2, 0, 0, 0, 0,
+				0, 0, 0, 2, 2, 0, 0, 3,
+				0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 4, 4, 0, 0, 5,
+				5, 0, 0, 7, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 12, 12, 0, 0, 14,
+				14, 0, 0, 22, 22, 0, 0, 63,
+			}
+
+			for i := 0; i < len(expected); i++ {
+				if expected[i] != f[i] {
+					t.Errorf("Expected value %d but found %d at position %d", expected[i], f[i], i)
+				}
+			}
+		})
+	})
+
+	t.Run("Prefix()", func(t *testing.T) {
+
+		t.Run("returns correct prefix for each level", func(t *testing.T) {
+			f := NewFingerprintFromImage(randomImage())
+
+			for level := 0; level < fingerprintDCTSideLength; level++ {
+				prefix := f.Prefix(level)
+				expectedPrefix := f[:level*level]
+
+				if expected, actual := len(expectedPrefix), len(prefix); actual != expected {
+					t.Errorf("Expected length %d but got prefix of length %d", expected, actual)
+
+				} else {
+					for i := 0; i < len(expectedPrefix); i++ {
+						if expected, actual := expectedPrefix[i], prefix[i]; actual != expected {
+							t.Errorf("Expected %d but got prefix value %d", expected, actual)
+						}
+					}
+				}
+			}
+		})
 	})
 }
