@@ -1,116 +1,23 @@
 package simian
 
 import (
-	"bytes"
-	"encoding/hex"
+	"fmt"
 	"image"
 	"image/color"
-	"math"
 
 	"golang.org/x/image/draw"
 )
 
-const bitsPerSample = 4
-const sampleBitsMask = (1 << bitsPerSample) - 1
-const samplesPerByte = 8 / bitsPerSample
+const fingerprintDCTSideLength = 8
+const SamplesPerFingerprint = fingerprintDCTSideLength * fingerprintDCTSideLength
 
-type Fingerprint struct {
-	samples []uint8
-}
+type Fingerprint [SamplesPerFingerprint]int16
 
-func (f *Fingerprint) Bytes() []byte {
-	packed := bytes.Buffer{}
-	current := byte(0)
-	bits := uint(8)
-	i := 0
-
-	for ; i < len(f.samples); i++ {
-		y := f.samples[i]
-
-		bits -= bitsPerSample
-		current = (current << bitsPerSample) | (y >> (8 - bitsPerSample))
-
-		if bits == 0 {
-			packed.WriteByte(current)
-			current = 0
-			bits = 8
-		}
-	}
-
-	if bits < 8 {
-		current <<= bits
-		packed.WriteByte(current)
-	}
-
-	return packed.Bytes()
-}
-
-func (f *Fingerprint) Difference(to Fingerprint) (diff float64) {
-	return math.Min(float64(f.Distance(to))/float64(len(to.samples)*255), 1.0)
-}
-
-func (f *Fingerprint) Distance(to Fingerprint) (dist uint64) {
-	if len(f.samples) != len(to.samples) {
-		return math.MaxUint64
-	}
-
-	for i := 0; i < len(f.samples); i++ {
-		if f.samples[i] > to.samples[i] {
-			dist += uint64(f.samples[i] - to.samples[i])
-		} else {
-			dist += uint64(to.samples[i] - f.samples[i])
-		}
-	}
-
-	return dist
-}
-
-func (f *Fingerprint) MarshalText() (text []byte, err error) {
-	bytes := f.Bytes()
-	result := make([]byte, hex.EncodedLen(len(bytes)))
-
-	hex.Encode(result, bytes)
-	return result, nil
-}
-
-func (f *Fingerprint) Size() int {
-	return int(math.Sqrt(float64(len(f.samples))))
-}
-
-func (f Fingerprint) String() string {
-	return hex.EncodeToString(f.Bytes())
-}
-
-func (f *Fingerprint) UnmarshalBytes(fingerprintBytes []byte) error {
-	sampleCount := int(math.Sqrt(float64(len(fingerprintBytes) * samplesPerByte)))
-	sampleCount *= sampleCount
-	f.samples = make([]uint8, sampleCount)
-
-	for i := 0; i < sampleCount; i++ {
-		b := fingerprintBytes[i/samplesPerByte]
-		shift := uint(8 - bitsPerSample - (i%samplesPerByte)*bitsPerSample)
-		bits := b >> shift & sampleBitsMask
-		f.samples[i] = bits << (8 - bitsPerSample)
-	}
-
-	return nil
-}
-
-func (f *Fingerprint) UnmarshalText(text []byte) error {
-	hexBytes := make([]byte, hex.DecodedLen(len(text)))
-	_, err := hex.Decode(hexBytes, text)
-	if err != nil {
-		return err
-	}
-
-	return f.UnmarshalBytes(hexBytes)
-}
-
-func NewFingerprint(src image.Image, size int) Fingerprint {
-	scaled := image.NewNRGBA(image.Rectangle{Max: image.Point{X: size, Y: size}})
+func FingerprintFromImage(src image.Image) Fingerprint {
+	scaled := image.NewNRGBA(image.Rectangle{Max: image.Point{X: fingerprintDCTSideLength, Y: fingerprintDCTSideLength}})
 	draw.BiLinear.Scale(scaled, scaled.Bounds(), src, src.Bounds(), draw.Src, nil)
 
-	fingerprintSamples := make([]uint8, size*size)
+	fingerprintSamples := make([]int8, SamplesPerFingerprint)
 	offset := 0
 
 	for i := scaled.Bounds().Min.Y; i < scaled.Bounds().Max.Y; i++ {
@@ -118,10 +25,58 @@ func NewFingerprint(src image.Image, size int) Fingerprint {
 			r, g, b, _ := scaled.At(j, i).RGBA()
 			y, _, _ := color.RGBToYCbCr(uint8(r>>8), uint8(g>>8), uint8(b>>8))
 
-			fingerprintSamples[offset] = y & (sampleBitsMask << (8 - bitsPerSample))
+			fingerprintSamples[offset] = int8(y - 128)
 			offset++
 		}
 	}
 
-	return Fingerprint{samples: fingerprintSamples}
+	dct := DCT(fingerprintDCTSideLength, fingerprintDCTSideLength, fingerprintSamples)
+
+	fmt.Printf("DCT:\n")
+	for i := 0; i < len(dct); i++ {
+		if i == 0 {
+			dct[i] >>= 7
+		} else {
+			dct[i] = dct[i] >> 5
+		}
+
+		if i > 0 && i%fingerprintDCTSideLength == 0 {
+			fmt.Println()
+		}
+		fmt.Printf(" %5d", dct[i])
+	}
+	fmt.Println()
+	fmt.Println()
+
+	return dctToFingerprint(dct)
+}
+
+func dctToFingerprint(squareMatrix []int16) (f Fingerprint) {
+	level := 0
+	offset := 0
+
+	for i := 0; i != SamplesPerFingerprint; {
+		if offset == level {
+
+			// Sample the last corner of the current square
+			f[i] = squareMatrix[level*fingerprintDCTSideLength+level]
+			i++
+
+			// Start the next larger square
+			offset = 0
+			level++
+
+		} else {
+
+			// Sample one from the right and one from the bottom
+			f[i] = squareMatrix[offset*fingerprintDCTSideLength+level]
+			i++
+			f[i] = squareMatrix[level*fingerprintDCTSideLength+offset]
+			i++
+
+			offset++
+		}
+	}
+
+	return
 }

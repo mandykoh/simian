@@ -30,36 +30,3 @@ func DCT(width int, height int, values []int8) (result []int16) {
 
 	return
 }
-
-func FlattenRecursiveSquares(squareMatrix []int16) []int16 {
-	sideLength := int(math.Sqrt(float64(len(squareMatrix))))
-	result := make([]int16, sideLength*sideLength)
-
-	level := 0
-	offset := 0
-
-	for i := 0; i != len(result); {
-		if offset == level {
-
-			// Sample the last corner of the current square
-			result[i] = squareMatrix[level*sideLength+level]
-			i++
-
-			// Start the next larger square
-			offset = 0
-			level++
-
-		} else {
-
-			// Sample one from the right and one from the bottom
-			result[i] = squareMatrix[offset*sideLength+level]
-			i++
-			result[i] = squareMatrix[level*sideLength+offset]
-			i++
-
-			offset++
-		}
-	}
-
-	return result
-}
