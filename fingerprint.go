@@ -11,7 +11,6 @@ import (
 
 const fingerprintDCTSideLength = 8
 const fingerprintACShift = 7
-const fingerprintDCShift = 5
 
 const SamplesPerFingerprint = fingerprintDCTSideLength * fingerprintDCTSideLength
 
@@ -23,7 +22,7 @@ func (f *Fingerprint) Difference(other *Fingerprint) float64 {
 		result += math.Abs(float64(f[i] - other[i]))
 	}
 
-	return result / float64(SamplesPerFingerprint*12)
+	return result / float64(SamplesPerFingerprint*22)
 }
 
 func (f *Fingerprint) Prefix(level int) []int16 {
@@ -42,19 +41,34 @@ func NewFingerprintFromImage(src image.Image) *Fingerprint {
 			r, g, b, _ := scaled.At(j, i).RGBA()
 			y, _, _ := color.RGBToYCbCr(uint8(r>>8), uint8(g>>8), uint8(b>>8))
 
-			samples[offset] = int8(y - 128)
+			val := int8(y - 128)
+			samples[offset] = val
 			offset++
 		}
 	}
 
 	dct := DCT(fingerprintDCTSideLength, fingerprintDCTSideLength, samples)
 
+	min := int16(math.MaxInt16)
+	max := int16(math.MinInt16)
+
+	for i := 1; i < len(dct); i++ {
+		if dct[i] < min {
+			min = dct[i]
+		}
+		if dct[i] > max {
+			max = dct[i]
+		}
+	}
+
+	scale := 127.0 / float64(max-min) / 2.0
+
 	fmt.Printf("DCT:\n")
+
+	dct[0] >>= fingerprintACShift
 	for i := 0; i < len(dct); i++ {
-		if i == 0 {
-			dct[i] >>= fingerprintACShift
-		} else {
-			dct[i] = dct[i] >> fingerprintDCShift
+		if i != 0 {
+			dct[i] = int16(float64(dct[i]) * scale)
 		}
 
 		if i > 0 && i%fingerprintDCTSideLength == 0 {
