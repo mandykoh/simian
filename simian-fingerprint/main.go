@@ -29,7 +29,7 @@ func main() {
 		return
 	}
 
-	fingerprint := simian.FingerprintFromImage(img)
+	fingerprint := simian.NewFingerprintFromImage(img)
 
 	for i := 0; i < len(fingerprint); i++ {
 		fmt.Printf("%02x", fingerprint[i]+128)

@@ -3,10 +3,22 @@ package simian
 import (
 	"image"
 	"image/color"
+	"math/rand"
 	"testing"
 )
 
 func TestFingerprint(t *testing.T) {
+
+	randomImage := func() image.Image {
+		img := image.NewNRGBA(image.Rectangle{Max: image.Point{X: 256, Y: 256}})
+		for i := img.Bounds().Min.Y; i < img.Bounds().Max.Y; i++ {
+			for j := img.Bounds().Min.X; j < img.Bounds().Max.X; j++ {
+				img.Set(j, i, color.RGBA{uint8(rand.Int()), uint8(rand.Int()), uint8(rand.Int()), 255})
+			}
+		}
+
+		return img
+	}
 
 	t.Run("dctToFingerprint()", func(t *testing.T) {
 
@@ -36,6 +48,30 @@ func TestFingerprint(t *testing.T) {
 		})
 	})
 
+	t.Run("Difference()", func(t *testing.T) {
+
+		t.Run("returns 0.0 for an exact match", func(t *testing.T) {
+			f := NewFingerprintFromImage(randomImage())
+
+			difference := f.Difference(f)
+
+			if difference > 0.00001 {
+				t.Errorf("Expected no difference but got %f", difference)
+			}
+		})
+
+		t.Run("returns higher than 0.0 for different images", func(t *testing.T) {
+			f1 := NewFingerprintFromImage(randomImage())
+			f2 := NewFingerprintFromImage(randomImage())
+
+			difference := f1.Difference(f2)
+
+			if difference <= 0.001 {
+				t.Errorf("Expected some difference but got %f", difference)
+			}
+		})
+	})
+
 	t.Run("FingerprintFromImage()", func(t *testing.T) {
 
 		t.Run("should product correct fingerprint from DCT of white image", func(t *testing.T) {
@@ -46,7 +82,7 @@ func TestFingerprint(t *testing.T) {
 				}
 			}
 
-			f := FingerprintFromImage(img)
+			f := NewFingerprintFromImage(img)
 
 			if expected, actual := int16(8064>>fingerprintACShift), f[0]; actual != expected {
 				t.Errorf("Expected value %d but found %d at position 0", expected, actual)
@@ -74,7 +110,7 @@ func TestFingerprint(t *testing.T) {
 				offset++
 			}
 
-			f := FingerprintFromImage(img)
+			f := NewFingerprintFromImage(img)
 
 			expected := Fingerprint{
 				-1, 0, 0, 4, 0, 0, 0, 0,

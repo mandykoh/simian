@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"math"
 
 	"golang.org/x/image/draw"
 )
@@ -16,7 +17,16 @@ const SamplesPerFingerprint = fingerprintDCTSideLength * fingerprintDCTSideLengt
 
 type Fingerprint [SamplesPerFingerprint]int16
 
-func FingerprintFromImage(src image.Image) Fingerprint {
+func (f *Fingerprint) Difference(other *Fingerprint) float64 {
+	result := 0.0
+	for i := 0; i < SamplesPerFingerprint; i++ {
+		result += math.Abs(float64(f[i] - other[i]))
+	}
+
+	return result / float64(SamplesPerFingerprint*12)
+}
+
+func NewFingerprintFromImage(src image.Image) *Fingerprint {
 	scaled := image.NewNRGBA(image.Rectangle{Max: image.Point{X: fingerprintDCTSideLength, Y: fingerprintDCTSideLength}})
 	draw.BiLinear.Scale(scaled, scaled.Bounds(), src, src.Bounds(), draw.Src, nil)
 
@@ -54,7 +64,9 @@ func FingerprintFromImage(src image.Image) Fingerprint {
 	return dctToFingerprint(dct)
 }
 
-func dctToFingerprint(squareMatrix []int16) (f Fingerprint) {
+func dctToFingerprint(squareMatrix []int16) (f *Fingerprint) {
+	f = &Fingerprint{}
+
 	level := 0
 	offset := 0
 

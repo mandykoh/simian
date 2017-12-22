@@ -5,13 +5,12 @@ import (
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
-	"math"
 	"os"
 
 	"github.com/mandykoh/simian"
 )
 
-func makeFingerprintFromImageFile(imageFileName string) (f simian.Fingerprint, err error) {
+func makeFingerprintFromImageFile(imageFileName string) (f *simian.Fingerprint, err error) {
 	var imageFile *os.File
 	imageFile, err = os.Open(imageFileName)
 	if err != nil {
@@ -25,7 +24,7 @@ func makeFingerprintFromImageFile(imageFileName string) (f simian.Fingerprint, e
 		return
 	}
 
-	return simian.FingerprintFromImage(img), nil
+	return simian.NewFingerprintFromImage(img), nil
 }
 
 func main() {
@@ -46,11 +45,7 @@ func main() {
 		return
 	}
 
-	difference := 0.0
-	for i := 0; i < len(fingerprint1); i++ {
-		difference += math.Abs(float64(fingerprint1[i] - fingerprint2[i]))
-	}
-	difference /= float64(len(fingerprint1) * 12)
+	difference := fingerprint1.Difference(fingerprint2)
 
 	var judgment string
 	switch {
