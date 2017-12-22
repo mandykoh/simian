@@ -11,6 +11,7 @@ import (
 
 const fingerprintDCTSideLength = 8
 const fingerprintACShift = 7
+const fingerprintDifferenceScale = 22
 
 const SamplesPerFingerprint = fingerprintDCTSideLength * fingerprintDCTSideLength
 
@@ -22,7 +23,7 @@ func (f *Fingerprint) Difference(other *Fingerprint) float64 {
 		result += math.Abs(float64(f[i] - other[i]))
 	}
 
-	return result / float64(SamplesPerFingerprint*22)
+	return result / float64(SamplesPerFingerprint*fingerprintDifferenceScale)
 }
 
 func (f *Fingerprint) Prefix(level int) []int16 {
