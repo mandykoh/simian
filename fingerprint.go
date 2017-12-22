@@ -26,6 +26,10 @@ func (f *Fingerprint) Difference(other *Fingerprint) float64 {
 	return result / float64(SamplesPerFingerprint*12)
 }
 
+func (f *Fingerprint) Prefix(level int) []int16 {
+	return f[:level*level]
+}
+
 func NewFingerprintFromImage(src image.Image) *Fingerprint {
 	scaled := image.NewNRGBA(image.Rectangle{Max: image.Point{X: fingerprintDCTSideLength, Y: fingerprintDCTSideLength}})
 	draw.BiLinear.Scale(scaled, scaled.Bounds(), src, src.Bounds(), draw.Src, nil)

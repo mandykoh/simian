@@ -130,4 +130,27 @@ func TestFingerprint(t *testing.T) {
 			}
 		})
 	})
+
+	t.Run("Prefix()", func(t *testing.T) {
+
+		t.Run("returns correct prefix for each level", func(t *testing.T) {
+			f := NewFingerprintFromImage(randomImage())
+
+			for level := 0; level < fingerprintDCTSideLength; level++ {
+				prefix := f.Prefix(level)
+				expectedPrefix := f[:level*level]
+
+				if expected, actual := len(expectedPrefix), len(prefix); actual != expected {
+					t.Errorf("Expected length %d but got prefix of length %d", expected, actual)
+
+				} else {
+					for i := 0; i < len(expectedPrefix); i++ {
+						if expected, actual := expectedPrefix[i], prefix[i]; actual != expected {
+							t.Errorf("Expected %d but got prefix value %d", expected, actual)
+						}
+					}
+				}
+			}
+		})
+	})
 }
