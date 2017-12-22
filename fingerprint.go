@@ -9,6 +9,9 @@ import (
 )
 
 const fingerprintDCTSideLength = 8
+const fingerprintACShift = 7
+const fingerprintDCShift = 5
+
 const SamplesPerFingerprint = fingerprintDCTSideLength * fingerprintDCTSideLength
 
 type Fingerprint [SamplesPerFingerprint]int16
@@ -17,7 +20,7 @@ func FingerprintFromImage(src image.Image) Fingerprint {
 	scaled := image.NewNRGBA(image.Rectangle{Max: image.Point{X: fingerprintDCTSideLength, Y: fingerprintDCTSideLength}})
 	draw.BiLinear.Scale(scaled, scaled.Bounds(), src, src.Bounds(), draw.Src, nil)
 
-	fingerprintSamples := make([]int8, SamplesPerFingerprint)
+	samples := make([]int8, SamplesPerFingerprint)
 	offset := 0
 
 	for i := scaled.Bounds().Min.Y; i < scaled.Bounds().Max.Y; i++ {
@@ -25,19 +28,19 @@ func FingerprintFromImage(src image.Image) Fingerprint {
 			r, g, b, _ := scaled.At(j, i).RGBA()
 			y, _, _ := color.RGBToYCbCr(uint8(r>>8), uint8(g>>8), uint8(b>>8))
 
-			fingerprintSamples[offset] = int8(y - 128)
+			samples[offset] = int8(y - 128)
 			offset++
 		}
 	}
 
-	dct := DCT(fingerprintDCTSideLength, fingerprintDCTSideLength, fingerprintSamples)
+	dct := DCT(fingerprintDCTSideLength, fingerprintDCTSideLength, samples)
 
 	fmt.Printf("DCT:\n")
 	for i := 0; i < len(dct); i++ {
 		if i == 0 {
-			dct[i] >>= 7
+			dct[i] >>= fingerprintACShift
 		} else {
-			dct[i] = dct[i] >> 5
+			dct[i] = dct[i] >> fingerprintDCShift
 		}
 
 		if i > 0 && i%fingerprintDCTSideLength == 0 {

@@ -1,6 +1,8 @@
 package simian
 
 import (
+	"image"
+	"image/color"
 	"testing"
 )
 
@@ -29,6 +31,65 @@ func TestFingerprint(t *testing.T) {
 			for i := 0; i < len(result); i++ {
 				if result[i] != int16(i) {
 					t.Errorf("Expected element %d but got %d", i, result[i])
+				}
+			}
+		})
+	})
+
+	t.Run("FingerprintFromImage()", func(t *testing.T) {
+
+		t.Run("should product correct fingerprint from DCT of white image", func(t *testing.T) {
+			img := image.NewNRGBA(image.Rectangle{Max: image.Point{X: 256, Y: 256}})
+			for i := img.Bounds().Min.Y; i < img.Bounds().Max.Y; i++ {
+				for j := img.Bounds().Min.X; j < img.Bounds().Max.X; j++ {
+					img.Set(j, i, color.RGBA{uint8(255), uint8(255), uint8(255), 255})
+				}
+			}
+
+			f := FingerprintFromImage(img)
+
+			if expected, actual := int16(8064>>fingerprintACShift), f[0]; actual != expected {
+				t.Errorf("Expected value %d but found %d at position 0", expected, actual)
+			}
+
+			for i := 1; i < len(f); i++ {
+				if expected, actual := int16(0), f[i]; actual != expected {
+					t.Errorf("Expected value %d but found %d at position %d", expected, actual, i)
+				}
+			}
+		})
+
+		t.Run("should product correct fingerprint from DCT of checkered image", func(t *testing.T) {
+			img := image.NewNRGBA(image.Rectangle{Max: image.Point{X: fingerprintDCTSideLength, Y: fingerprintDCTSideLength}})
+			offset := 0
+			for i := img.Bounds().Min.Y; i < img.Bounds().Max.Y; i++ {
+				for j := img.Bounds().Min.X; j < img.Bounds().Max.X; j++ {
+					if offset%2 == 0 {
+						img.Set(j, i, color.RGBA{uint8(255), uint8(255), uint8(255), 255})
+					} else {
+						img.Set(j, i, color.RGBA{uint8(0), uint8(0), uint8(0), 255})
+					}
+					offset++
+				}
+				offset++
+			}
+
+			f := FingerprintFromImage(img)
+
+			expected := Fingerprint{
+				-1, 0, 0, 4, 0, 0, 0, 0,
+				0, 0, 0, 4, 4, 0, 0, 5,
+				0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 7, 7, 0, 0, 8,
+				8, 0, 0, 12, 0, 0, 0, 0,
+				0, 0, 0, 0, 0, 0, 0, 0,
+				0, 0, 0, 20, 20, 0, 0, 24,
+				24, 0, 0, 36, 36, 0, 0, 104,
+			}
+
+			for i := 0; i < len(expected); i++ {
+				if expected[i] != f[i] {
+					t.Errorf("Expected value %d but found %d at position %d", expected[i], f[i], i)
 				}
 			}
 		})
